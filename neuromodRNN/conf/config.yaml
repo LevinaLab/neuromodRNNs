@@ -1,0 +1,26 @@
+defaults:
+  
+  - base_config
+  - task: cue_accumulation
+  
+  - _self_
+ 
+
+hydra:
+  run:
+    dir: outputs/${task.task_name}/${save_paths.experiment_name}/${save_paths.condition}
+    
+  job:
+      config:
+        override_dirname:
+          exclude_keys:
+            - save_paths.experiment_name
+            - save_paths.condition
+  
+
+
+save_paths:
+  experiment_name: "test"
+  condition: "abelha"
+
+

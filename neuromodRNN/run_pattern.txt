@@ -1,0 +1,12 @@
+
+
+# insert your commands here
+# takes the same arguments as train.py but instead of number of runs you need to label the run number manually with -n
+# e.g. python train.py -c cumulative -t parity -s 0 -n 0
+python main.py task="pattern_generation" save_paths.experiment_name="test_input" save_paths.condition="50_input_neurons" net_params.seed=1 net_arch.gridshape=[20,20] train_params.stop_criteria=0.1 net_arch.n_neurons_channel=50 net_arch.n_ALIF=0 net_arch.n_LIF=400 net_arch.n_out=1 net_params.tau_m=30 net_params.tau_out=30 net_params.refractory_period=2 train_params.c_reg=100 train_params.train_sub_batch_size=32 train_params.train_batch_size=128 train_params.test_sub_batch_size=32 train_params.test_batch_size=128 train_params.iterations=100 task.trial_dur=2000
+
+python main.py task="pattern_generation" save_paths.experiment_name="test_input" save_paths.condition="50_input_neurons_5hz" net_params.seed=1 net_arch.gridshape=[20,20] train_params.stop_criteria=0.1 net_arch.n_neurons_channel=50 net_arch.n_ALIF=0 net_arch.n_LIF=400 net_arch.n_out=1 net_params.tau_m=30 net_params.tau_out=30 net_params.refractory_period=2 train_params.c_reg=100 train_params.train_sub_batch_size=32 train_params.test_sub_batch_size=32 train_params.test_batch_size=128 train_params.iterations=1000 task.trial_dur=2000 task.f_input=5
+
+python main.py task="pattern_generation" save_paths.experiment_name="test_input" save_paths.condition="50_input_neurons_2.5hz" net_params.seed=1 net_arch.gridshape=[20,20] train_params.stop_criteria=0.1 net_arch.n_neurons_channel=50 net_arch.n_ALIF=0 net_arch.n_LIF=400 net_arch.n_out=1 net_params.tau_m=30 net_params.tau_out=30 net_params.refractory_period=2 train_params.c_reg=100 train_params.train_sub_batch_size=32 train_params.test_sub_batch_size=32 train_params.test_batch_size=128 train_params.iterations=000 task.trial_dur=2000 task.f_input=2.5
+
+python main.py task="pattern_generation" save_paths.experiment_name="test_input" save_paths.condition="100_input_neurons_2.5hz" net_params.seed=1 net_arch.gridshape=[20,20] train_params.stop_criteria=0.1 net_arch.n_neurons_channel=50 net_arch.n_ALIF=0 net_arch.n_LIF=400 net_arch.n_out=1 net_params.tau_m=30 net_params.tau_out=30 net_params.refractory_period=2 train_params.c_reg=100 train_params.train_sub_batch_size=32 train_params.test_sub_batch_size=32 train_params.test_batch_size=128 train_params.iterations=1000 task.trial_dur=2000 task.f_input=2.5
