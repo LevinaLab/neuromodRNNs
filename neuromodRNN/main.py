@@ -72,7 +72,7 @@ class TrainParams:
     stop_criteria: float = 0.95
     f_target:float = 10.
     c_reg: float = 1.
-    learning_rule:str = 'e_prop'
+    learning_rule:str = 'e_prop_hardcoded'
 
     
  

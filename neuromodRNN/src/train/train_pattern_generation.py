@@ -311,7 +311,7 @@ def train_and_evaluate(
     loss_training = []
     loss_eval = []
     normalized_loss_training = []
-    accuracy_eval = []
+    normalized_loss_eval = []
     iterations = []
     # Compile step functions.
     train_step_fn = jax.jit(train_step, static_argnames=["LS_avail", "local_connectivity", "learning_rule", "task"])
@@ -370,7 +370,7 @@ def train_and_evaluate(
             loss_training.append(train_metrics.loss)
             loss_eval.append(eval_metrics.loss)
             normalized_loss_training.append(train_metrics.normalized_loss)
-            accuracy_eval.append(eval_metrics.normalized_loss)
+            normalized_loss_eval.append(eval_metrics.normalized_loss)            
             iterations.append(epoch - 1)  
 
             # early stop
@@ -404,7 +404,7 @@ def train_and_evaluate(
       with open(save_file, 'wb') as outfile:
         pickle.dump(run_metrics, outfile, pickle.HIGHEST_PROTOCOL)
        
-    run_metrics = [loss_training, loss_eval, normalized_loss_training, accuracy_eval, iterations]   
+    run_metrics = [loss_training, loss_eval, normalized_loss_training, normalized_loss_eval, iterations]   
     names = ["MSE_training", "MSE_eval", "nMSE_training", "nMSE_eval", "iterations"]   
     for run_metric, file_name in zip(run_metrics, names):
       save_training_info(run_metric, file_name)
@@ -443,7 +443,7 @@ def train_and_evaluate(
     axs_train[1, 0].legend()
 
     # Plot evaluation accuracy
-    axs_train[1, 1].plot(iterations, accuracy_eval, label='Evaluation nMSE', color='m')
+    axs_train[1, 1].plot(iterations, normalized_loss_eval, label='Evaluation nMSE', color='m')
     axs_train[1, 1].set_title('Evaluation nMSE')
     axs_train[1, 1].set_xlabel('Iterations')
     axs_train[1, 1].set_ylabel('nMSE')
