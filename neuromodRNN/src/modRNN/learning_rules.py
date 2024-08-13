@@ -5,6 +5,8 @@
 """Library file used learning rules: e-pro;, moddiffusion"""
 
 from jax import lax, numpy as jnp
+from jax import value_and_grad
+from jax.nn import softmax
 import os
 import sys
 
@@ -19,6 +21,7 @@ from modRNN import learning_utils
 from typing import (
   Dict,
   Tuple,
+  Callable
  )
 from flax.typing import Array
 
@@ -38,6 +41,7 @@ def e_prop_vectorized(batch_init_carries:Tuple[Dict[str,Array], Array],
 
     Note: the "online" implementation also applies updates only after a batch, but each single update is computed online and accumulated for applying at the end of batch processing
     """
+    
 
 
     #unpack init carries(check compute_grads function for detailing on batch_init_carries )
@@ -263,7 +267,7 @@ def output_grads(batch_init_carries: Dict[str,Array], batch_inputs: Tuple[Array,
     kappa = eligibility_params['ReadOut_0']['kappa'] 
     
     y_batch, true_y_batch, z = batch_inputs # Y_batch (n_batch, n_time, n_out)
-
+    
     batch_init_eligibility_carries, _ = batch_init_carries # second element is init_grid_error, which is not used here
 
     init_carry= batch_init_eligibility_carries["v_eligibility_vector_out"]
@@ -282,8 +286,7 @@ def output_grads(batch_init_carries: Dict[str,Array], batch_inputs: Tuple[Array,
     )
        
     crop_trace = traces[-LS_avail:,:,:] #(n_t,n_b,n_rec)
-      
-
+     
     # perform element-wise multiplication and sum over batches and time dimensions    
     grads = jnp.einsum('btor,tbor->ro', jnp.expand_dims(err,3), jnp.expand_dims(crop_trace,2)) # weights have shape (pre, post), so grad should have same shape --> ro)
     
@@ -291,33 +294,42 @@ def output_grads(batch_init_carries: Dict[str,Array], batch_inputs: Tuple[Array,
 
 
 
-def compute_grads(eligibility_inputs: Tuple[Array, Array, Array, Array], state,LS_avail: int, local_connectivity: bool, f_target:float, c_reg:float, learning_rule:str) ->Dict[str, Dict]:
+def autodiff_grads(batch,state, optimization_loss_fn,LS_avail, c_reg, f_target):
+    x = batch["input"] # in compute_grads, transpose x to (n_t, n_b, n_in) for the hardcoded versions, so for here need to be transpose back to (n_b, n_t, n_in)
+    labels = batch["label"]
+    trial_length = batch["trial_duration"]
+
+    if labels.ndim==2: 
+        labels = jnp.expand_dims(labels, axis=-1) # this is necessary because target labels might have only (n_batch, n_t) and predictions (n_batch, n_t, n_out=1)
+
+    def loss_fn(params):
+        recurrent_carries, y = state.apply_fn({'params': params, 'eligibility params':state.eligibility_params, 'spatial params':state.spatial_params} , x)  
+        _,_, _ , z, _ = recurrent_carries # only z is necessary here
+        
+        loss = optimization_loss_fn(logits=y[:, -LS_avail:, :], labels=labels[:,-LS_avail:, :], z=z,
+                                     c_reg=c_reg, f_target=f_target, trial_length=trial_length
+        ) # optimization loss will be both task and regultarization, so need to make sure everything is passed
+        return loss, y
+    grad_fn = value_and_grad(loss_fn, has_aux=True)
+    (loss, y), grads = grad_fn(state.params)
+    return y, grads
+
+
+
+def compute_grads(batch:Dict[str, Array], state,optimization_loss_fn:Callable, LS_avail: int, 
+                  local_connectivity: bool, f_target:float, c_reg:float, learning_rule:str, task:str) ->Dict[str, Dict]:
     """
     Compute grads according to chosen learning rule.
 
     Parameters
     ----------  
-    eligibility_input: Tuple of arrays
-        y_batch: Array (n_batch, n_t, n_out)
-            Output of network for a batch and all time steps. For classification tasks, y needs to be the softmax transformed output
-        y_true_batch: Array (n_batch, n_t, n_out)
-            Ground truth values which model has to predict. Note that time dimension is fundamental for code to work properly, even if there is a ground_truth for
-            single time point. In case of tasks with unidimensional output, function can handle labels without n_out dimension (considering that n_t exists)
-        trial_length: Array (n_batch,)
-            Array with the trial length for each trial. Even if task has trials with same length, this should be inputed as Array with shape (n_batch,) and all entries same value.
-        recurrent_carries: Tuple of arrays
-            v: Array (n_batch, n_t, n_rec)
-                Hidden variable: membrane potential of recurrent neurons through the different time steps
-            a: Array (n_batch, n_t, n_rec)
-                Adaptation hidden variable (not used in the function)
-            A_thr: Array (n_batch, n_t, n_rec)
-                Adapted firing threshold for recurrent neurons
-            z: Array (n_batch, n_t, n_rec)
-                Observable variable: spikes of recurrent neurons
-            r: Array(n_batch, n-t, n_rec)
-                Refractory period state of recurrent neurons
-        x: Array (n_batch, n_t, n_in)
-            Input spikes to the network
+    batch: Dict keys are strings values Arrays
+        input: Array (n_b, n_t, n_in)
+            input spikes of batch trial
+        label: Array (n_b, n_t, n_out)
+            correct labels for trials in batch (for classification, should be one-hot encoded)
+        trial_length: Array(n_b,)
+            length of each trial in batch
     state: TrainState (check train files for more info). Relevant here:
         eligibility_params: Dict of Arraylike
             thr: scalar
@@ -366,6 +378,9 @@ def compute_grads(eligibility_inputs: Tuple[Array, Array, Array, Array], state,L
         init_error_grid: Dict of arrays
             error_grid: Array (h,w)
                 Initial carry for error grid
+    optimization_loss: callable
+        Loss function, possible including both task and firing rate regularization losses, which is used for rules 
+        operating with jax autodiff
     LS_avail: int
         Time step from which learning signal is available in the task
     local_connectivity: bool
@@ -374,86 +389,132 @@ def compute_grads(eligibility_inputs: Tuple[Array, Array, Array, Array], state,L
         Target firing frequency of firing rate regularization loss
     c_reg: float
         Constant regulating weight of firing regularization loss in the optimization problem
-    learning_rule: str ["e_prop", "diffusion" ]
+    learning_rule: str ["e_prop_hardcoded", "diffusion", "BPTT" ]
         Str representing which learning rule to apply
+    task: str
+        Str representing nature of loss (for now only accepts "classification" or "regression")
 
     Returns  
     ----------  
+    logits: Array (n_b, n_t, n_out)
+        Batch output of model (for classification tasks, returns non-normalized output)
     grads: Pytree (nested dictionaries)     
         Computed gradients according to chosen learning rule for the input, recurrent, and output layers
     """
-       
-    # Inputs
-    y_batch, true_y_batch,trial_length, recurrent_carries, x = eligibility_inputs 
-
-    v,_, A_thr , z, r = recurrent_carries # _ is a, which is not used 
-    v = jnp.transpose(v, (1,0,2)) # for the scan needs to be time major (n_t,n_batches, n_rec)
-    A_thr = jnp.transpose(A_thr, (1,0,2)) # for the scan needs to be time major
-    z = jnp.transpose(z, (1,0,2)) # for the scan needs to be time major (n_t,n_batches, n_rec)
-    r = jnp.transpose(r, (1,0,2)) # for the scan needs to be time major (n_t,n_batches, n_rec)
-    x = jnp.transpose(x, (1,0,2)) # for the scan needs to be time major (n_t,n_batches, n_in)
-    # Pack inputs for each layer weight grads
-    inputs_in = (y_batch, true_y_batch, (v, A_thr,r, x))
-    inputs_rec = (y_batch, true_y_batch, (v, A_thr,r, z))
-    inputs_out = (y_batch, true_y_batch, z)
-    
+                       
+    # Control flow:
+    #   "BBPT" or "e_prop_autodiff" --> use autodiff pipeline
+    #   "e_prop_hardcoded" or "diffusion" --> use hardcoded pipeline --> For "e_prop_hardcoded" decide if "online" or "offline" based on value of LS_avail
+    #   Any of valid options: raise error
 
 
-    # State
-    eligibility_params = state.eligibility_params
-    spatial_params = state.spatial_params
-    init_e_carries = state.init_eligibility_carries
-    init_error_carries = state.init_error_grid
-    init_error_grid = init_error_carries["error_grid"]
-
-    #pack params
-    params = eligibility_params, spatial_params
-    
-    if learning_rule == "e_prop":
-        # For larger values of LS_avail, use online version. Note that when LS_avail is 0, actually means that it is available trought the whole task
-        if (LS_avail > 0.) & (LS_avail <10):
-            grad_function = e_prop_vectorized
+    if (learning_rule == "BPTT") | (learning_rule == "e_prop_autodiff"):
+        y, grads = autodiff_grads(batch=batch,state=state, optimization_loss_fn=optimization_loss_fn,
+                               LS_avail=LS_avail, c_reg=c_reg, f_target=f_target)
         
-        else:
-            grad_function = e_prop_online
-        
-    elif learning_rule == "diffusion":
-        grad_function = neuromod_online
+        # guarantee no autapse
+        n_rec = jnp.shape(grads['ALIFCell_0']['recurrent_weights'])[0]
+        identity = jnp.eye(n_rec, dtype=grads['ALIFCell_0']['recurrent_weights'].dtype)
+        grads['ALIFCell_0']['recurrent_weights'] = grads['ALIFCell_0']['recurrent_weights'] * (jnp.array(1) - identity) # guarantee that no self recurrence is learned
+        # Guarantee that local connectivity is kept (otherwise, e-prop will lead to growth of new synapses)
+        if local_connectivity:
+            grads['ALIFCell_0']['recurrent_weights'] *= state.spatial_params['ALIFCell_0']['M']
+        return y, grads
+    
    
+    elif (learning_rule == "e_prop_hardcoded") | (learning_rule == "diffusion"):
+
+        # Forward pass
+        variables = {'params': state.params, 'eligibility params':state.eligibility_params, 'spatial params':state.spatial_params}
+        recurrent_carries, logits = state.apply_fn(variables, batch['input'])  
+
+        # Compute e-prop Updates
+        # If task is classification, the eprop update function expects y to be already the assigned probability,
+        # but model return logits. 
+        if task == "classification":
+            y = softmax(logits) # (n_batches, n_t, n_)
+        else:
+            y = logits # necessary only because want to return logits and not y for classification, easier to compute loss then
+        
+        # unpack recurrent carries
+        v,_, A_thr , z, r = recurrent_carries # _ is a, which is not used 
+
+        # prepare inputs  
+        v = jnp.transpose(v, (1,0,2)) # for the scan needs to be time major (n_t,n_batches, n_rec)
+        A_thr = jnp.transpose(A_thr, (1,0,2)) # for the scan needs to be time major
+        z = jnp.transpose(z, (1,0,2)) # for the scan needs to be time major (n_t,n_batches, n_rec)
+        r = jnp.transpose(r, (1,0,2)) # for the scan needs to be time major (n_t,n_batches, n_rec)
+        x = jnp.transpose(batch["input"], (1,0,2)) # for the scan needs to be time major (n_t,n_batches, n_in)
+        y_true = batch["label"]
+        trial_length = batch["trial_duration"]
+
+        # Pack inputs for each layer weight grads
+        inputs_in = (y, y_true, (v, A_thr,r, x))
+        inputs_rec = (y, y_true, (v, A_thr,r, z))
+        inputs_out = (y, y_true, z)
+        
+        # State
+        eligibility_params = state.eligibility_params
+        spatial_params = state.spatial_params
+        init_e_carries = state.init_eligibility_carries
+        init_error_carries = state.init_error_grid
+        init_error_grid = init_error_carries["error_grid"]
+
+        #pack params
+        params = eligibility_params, spatial_params
+          
+        if (learning_rule == "e_prop_hardcoded"):
+            # For larger values of LS_avail, use online version. Note that when LS_avail is 0, actually means that it is available trought the whole task
+            if (LS_avail > 0.) & (LS_avail <10):
+                grad_function = e_prop_vectorized
+            
+            else:
+                grad_function = e_prop_online
+            
+        elif learning_rule == "diffusion":
+            grad_function = neuromod_online
+
+
+        grads = {'ALIFCell_0':{}, 'ReadOut_0':{}}
+        
+        # Input Grads
+        grads['ALIFCell_0']['input_weights'] = grad_function(batch_init_carries=(init_e_carries['inputs'], init_error_grid),
+                                                                            batch_inputs= inputs_in, params=params, LS_avail = LS_avail, z=z, 
+                                                                            trial_length=trial_length,f_target=f_target, c_reg=c_reg
+        )
+        
+        # Recurrent Grads
+        grads['ALIFCell_0']['recurrent_weights'] = grad_function(batch_init_carries=(init_e_carries['rec'],init_error_grid),
+                                                                            batch_inputs=inputs_rec, params=params, LS_avail =LS_avail, z=z,
+                                                                            trial_length=trial_length,f_target=f_target,
+                                                                            c_reg=c_reg
+        )
+        
+            
+        # guarantee no autapse and that local connectivity is maintained
+        n_rec = jnp.shape(grads['ALIFCell_0']['recurrent_weights'])[0]
+        identity = jnp.eye(n_rec, dtype=grads['ALIFCell_0']['recurrent_weights'].dtype)
+        grads['ALIFCell_0']['recurrent_weights'] = grads['ALIFCell_0']['recurrent_weights'] * (jnp.array(1) - identity) # guarantee that no self recurrence is learned 
+        
+        # Guarantee that local connectivity is kept (otherwise, e-prop will lead to growth of new synapses)
+        if local_connectivity:
+            grads['ALIFCell_0']['recurrent_weights'] *= state.spatial_params['ALIFCell_0']['M']
+            
+        
+
+        # Output Grads
+        grads['ReadOut_0']['readout_weights'] = output_grads(batch_init_carries=(init_e_carries['out'],init_error_grid), 
+                                                            batch_inputs=inputs_out, params=params, 
+                                                            LS_avail=LS_avail)
+                
+        return logits, grads   
+    
     else:
-        raise ValueError("The requested method hasn't being implemented")
+        raise NotImplementedError("The requested method {} hasn't being implemented. Please provide one of the valid learning rules: 'e_prop_hardcoded', 'e_prop_autodiff', 'diffusion' or 'BPTT'".format(learning_rule))
 
 
-    grads = {'ALIFCell_0':{}, 'ReadOut_0':{}}
-    
-    # Input Grads
-    grads['ALIFCell_0']['input_weights'] = grad_function(batch_init_carries=(init_e_carries['inputs'], init_error_grid),
-                                                                        batch_inputs= inputs_in, params=params, LS_avail = LS_avail, z=z, 
-                                                                        trial_length=trial_length,f_target=f_target, c_reg=c_reg
-    )
-    
-    # Recurrent Grads
-    grads['ALIFCell_0']['recurrent_weights'] = grad_function(batch_init_carries=(init_e_carries['rec'],init_error_grid),
-                                                                          batch_inputs=inputs_rec, params=params, LS_avail =LS_avail, z=z,
-                                                                          trial_length=trial_length,f_target=f_target,
-                                                                          c_reg=c_reg
-    )
-    
-        
-    # guarantee no autopse and that local connectivity is maintained
-    n_rec = jnp.shape(grads['ALIFCell_0']['recurrent_weights'])[0]
-    identity = jnp.eye(n_rec, dtype=grads['ALIFCell_0']['recurrent_weights'].dtype)
-    grads['ALIFCell_0']['recurrent_weights'] = grads['ALIFCell_0']['recurrent_weights'] * (jnp.array(1) - identity) # guarantee that no self recurrence is learned 
-    
-    # Guarantee that local connectivity is kept (otherwise, e-prop will lead to growth of new synapses)
-    if local_connectivity:
-        grads['ALIFCell_0']['recurrent_weights'] *= state.spatial_params['ALIFCell_0']['M']
-        
-    
 
-    # Output Grads
-    grads['ReadOut_0']['readout_weights'] = output_grads(batch_init_carries=(init_e_carries['out'],init_error_grid), 
-                                                           batch_inputs=inputs_out, params=params, 
-                                                           LS_avail=LS_avail)
-                                                         
-    return grads
+
+
+
+    
