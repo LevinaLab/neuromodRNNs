@@ -200,7 +200,7 @@ class ALIFCell(nn.recurrent.RNNCellBase):
         inits.generalized_initializer(self.weights_init,
                                         gain=self.gain[1],
                                         avoid_self_recurrence=True, 
-                                        local_connectivity=M.value),
+                                        mask_connectivity=M.value),
         (self.n_LIF + self.n_ALIF, self.n_LIF + self.n_ALIF),
         self.param_dtype,
         ) # dim: (n_rec, n_rec)    
@@ -302,11 +302,13 @@ class ReadOut(nn.recurrent.RNNCellBase):
   
     # net_arch
     n_out: int = 2 # Number of output neurons.   
-    
+    sparse_connectivity: bool = True # if recurrent network is sparsely connected to readout
+
     # net_params
     b_out: Tuple = 0 # Bias for the output neurons. Not implemented yet --> dont change it
     tau_out: float =1 # Time constant for the output layer (ms).
     feedback: str = "Symmetric" # Type of feedback ('Symmetric' or 'Random').
+    sparsity: float = 0.1 # between 0 and 1, sparsity of readout connections (only used if sparse_connectivity is True)
 
     # Initializers
     carry_init: Initializer = initializers.zeros_init() # Initializer for the carry state (output layer membrane potential).
@@ -317,7 +319,7 @@ class ReadOut(nn.recurrent.RNNCellBase):
     
     # seeds
     FeedBack_seed: int = 42 # Key for feedback weights initialization.
-
+    sparsity_seed: int = 3312 # Key for sparsity mask initialization
     # others
     dt: float = 1 # Time step size (ms).
     param_dtype: Dtype = jnp.float32 # Data type for parameters.   
@@ -331,14 +333,26 @@ class ReadOut(nn.recurrent.RNNCellBase):
         Computes the next output state given the current carry and input from the recurrent layer.
         Output and carry are the membrane voltage of the leaky output neurons.
         """
+        
+        sparsity_mask = self.variable('spatial params', 'sparse_readout',
+                        inits.initialize_sparsity_mask(sparse_connectivity=self.sparse_connectivity, shape=(jnp.shape(z)[-1], self.n_out),
+                                                       key=random.key(self.sparsity_seed),sparsity=self.sparsity, dtype = self.param_dtype))                                   
+                                                        
+
+
+
+
+
+
         # Initialize weights (in @compact method, the init is done inside of __call__)
         w_out = self.param(
             'readout_weights',
             inits.generalized_initializer(self.weights_init,
                                         gain=self.gain[0],
-                                        avoid_self_recurrence=False),
+                                        avoid_self_recurrence=False,
+                                        mask_connectivity=sparsity_mask.value),
                                         (jnp.shape(z)[-1], self.n_out),
-                                        self.param_dtype,
+                                        self.param_dtype
         ) # dim: (n_pre, n_post): in the paper architecture this is (n_rec, n_out)
 
             
@@ -348,7 +362,7 @@ class ReadOut(nn.recurrent.RNNCellBase):
         B_out = self.variable('eligibility params', 'feedback_weights', inits.feedback_weights_initializer(self.feedback_init,
                                                                                                             random.key(self.FeedBack_seed), 
                                                                                                             (jnp.shape(z)[-1], self.n_out),
-                                                                                                            w_out, self.feedback, gain=self.gain[1]
+                                                                                                            w_out, sparsity_mask.value, self.feedback, gain=self.gain[1]
                                                                                                             )  #n_rec, n_out
         )            
 
@@ -411,9 +425,6 @@ class LSSN(nn.Module):
         Initialize the eligibility trace carry state.
 
 
-    """
-    
-    """
     
     # net_arch
     n_ALIF: int = 3 # Number of adaptive neurons ALIF.
@@ -458,7 +469,7 @@ class LSSN(nn.Module):
     sigma: float = 0.012 # controls probability of connection in the local connective mode according to distance between neurons.  
     gridshape: Tuple[int, int] = (10, 10) # (w,h) width (n_cols) and height(n_rows) of 2D grid used for embedding of recurrent layer.
     n_neuromodulators: int =1 # number of neuromodulators.
-
+    sparse_readout_connectivity: bool = False # if recurrent network is sparsely connected to readout
     
     # ALIF params
     thr: float = 0.6 # Base firing threshold for neurons.
@@ -470,10 +481,11 @@ class LSSN(nn.Module):
     k: float = 0 # decay rate of diffusion.
     radius:int = 1 # radius of difussion kernel,should probably be kept as one.
     learning_rule:str = "e_prop_hardcoded" # indicate which learning rule is being used. Important to block gradients for e_prop_autodiff. For hardcoded versions doesnt affect.  
-    
+
     # Readout params
     tau_out: float = 20  # Time constant for the output layer (ms).
     feedback: str = "Symmetric"  # Type of feedback ('Symmetric' or 'Random').
+    readout_sparsity: float = 0.1 # between 0 and 1, sparsity of readout connections (only used if sparse_connectivity is True)
 
 
     # 
@@ -500,7 +512,7 @@ class LSSN(nn.Module):
     cell_loc_seed: int = 3 # seed for initialize RNG used for location of cells in the 2D embedding (grid).
     diff_kernel_seed: int = 0 # seed for initialize RNG for diffusion kernel (not used in the function).
     FeedBack_seed: int = 42 # seed for initialize RNG for Feedback weights.
-
+    readout_sparsity_seed: int = 3312 # Key for sparsity mask initialization
     # Others
     dt: float = 1      
     loss: Callable = losses.softmax_cross_entropy   
@@ -538,10 +550,10 @@ class LSSN(nn.Module):
                                     diff_kernel_seed=self.diff_kernel_seed, dt=self.dt, param_dtype=self.param_dtype), variable_broadcast=("params", 'eligibility params', 'spatial params'), name="Recurrent"
         )
         
-        readout = nn.RNN(ReadOut(n_out=self.n_out,b_out=self.b_out, tau_out=self.tau_out, feedback = self.feedback,
+        readout = nn.RNN(ReadOut(n_out=self.n_out, sparse_connectivity=self.sparse_readout_connectivity, b_out=self.b_out, tau_out=self.tau_out, feedback = self.feedback, sparsity=self.readout_sparsity, 
                                  carry_init= self.out_carry_init, weights_init= self.ReadOut_weights_init,
                                  feedback_init = self.feedback_init, gain = (self.gain[2], self.gain[3]), 
-                                 FeedBack_seed=self.FeedBack_seed, dt = self.dt, param_dtype=self.param_dtype), variable_broadcast=("params",'eligibility params'), name="ReadOut"
+                                 FeedBack_seed=self.FeedBack_seed, sparsity_seed=self.readout_sparsity_seed, dt = self.dt, param_dtype=self.param_dtype), variable_broadcast=("params",'eligibility params', 'spatial params'), name="ReadOut"
         )
         
         # Apply then

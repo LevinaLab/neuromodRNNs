@@ -51,34 +51,36 @@ def model_from_config(cfg)-> LSSN:
   # generate different seed buy drawing random large ints
   key = random.PRNGKey(cfg.net_params.seed)  
   subkey, key = random.split(key)
-  feedback_seed,local_connectivity_seed, diff_kernel_seed, cell_loc_seed = random.randint(subkey, (4,),10000, 10000000)
+  feedback_seed,local_connectivity_seed, diff_kernel_seed, cell_loc_seed, readout_sparsity_seed = random.randint(subkey, (5,),10000, 10000000)
   # Not passing beta and b_out because are not fully implemented
   model = LSSN(n_ALIF=cfg.net_arch.n_ALIF,
               n_LIF=cfg.net_arch.n_LIF,
               n_out=cfg.net_arch.n_out,
-              feedback=cfg.net_arch.feedback,                        
-              FeedBack_seed=feedback_seed,
-              local_connectivity=cfg.net_arch.local_connectivity,
+              sigma = cfg.net_arch.sigma,
               gridshape=cfg.net_arch.gridshape,
               n_neuromodulators=cfg.net_arch.n_neuromodulators,
-              sigma = cfg.net_arch.sigma,
-              beta = cfg.net_params.beta,
-              local_connectivity_seed= local_connectivity_seed,
-              diff_kernel_seed=diff_kernel_seed,
-              cell_loc_seed=cell_loc_seed,
+              sparse_readout_connectivity=cfg.net_arch.sparse_readout_connectivity,
+              local_connectivity=cfg.net_arch.local_connectivity,
               thr=cfg.net_params.thr,
               tau_m=cfg.net_params.tau_m,
-              tau_adaptation=cfg.net_params.tau_adaptation,                      
+              tau_adaptation=cfg.net_params.tau_adaptation, 
+              beta = cfg.net_params.beta,
               gamma=cfg.net_params.gamma,
               refractory_period= cfg.net_params.refractory_period,
-              tau_out=cfg.net_params.tau_out,                                    
-              gain=cfg.net_params.w_init_gain,
-              dt=cfg.net_params.dt,
               k=cfg.net_params.k,
-              radius=cfg.net_params.radius,
-              learning_rule=cfg.train_params.learning_rule
-                                  
-  )
+              radius=cfg.net_params.radius,              
+              readout_sparsity= cfg.net_params.readout_sparsity,
+              tau_out=cfg.net_params.tau_out,
+              feedback=cfg.net_arch.feedback,
+              readout_sparsity_seed = readout_sparsity_seed,                        
+              FeedBack_seed=feedback_seed,     
+              learning_rule=cfg.train_params.learning_rule,
+              local_connectivity_seed= local_connectivity_seed,
+              diff_kernel_seed=diff_kernel_seed,
+              cell_loc_seed=cell_loc_seed,                                                
+              gain=cfg.net_params.w_init_gain,
+              dt=cfg.net_params.dt,         
+              )
   return model 
 
 def get_initial_params(rng:PRNGKey, model:LSSN, input_shape:Tuple[int,...])->Tuple[Dict[str,Array]]:
@@ -426,6 +428,7 @@ def train_and_evaluate(
     axs_train[0, 0].set_title('Training MSE')
     axs_train[0, 0].set_xlabel('Iterations')
     axs_train[0, 0].set_ylabel('MSE')
+    axs_train[0, 0].set_ylim(0,1)
     axs_train[0, 0].legend()
 
     # Plot evaluation loss
@@ -433,6 +436,7 @@ def train_and_evaluate(
     axs_train[0, 1].set_title('Evaluation MSE')
     axs_train[0, 1].set_xlabel('Iterations')
     axs_train[0, 1].set_ylabel('MSE')
+    axs_train[0, 1].set_ylim(0,1)
     axs_train[0, 1].legend()
 
     # Plot training accuracy
@@ -440,6 +444,7 @@ def train_and_evaluate(
     axs_train[1, 0].set_title('Training nMSE')
     axs_train[1, 0].set_xlabel('Iterations')
     axs_train[1, 0].set_ylabel('nMSE')
+    axs_train[1, 0].set_ylim(0,1)
     axs_train[1, 0].legend()
 
     # Plot evaluation accuracy
@@ -447,6 +452,7 @@ def train_and_evaluate(
     axs_train[1, 1].set_title('Evaluation nMSE')
     axs_train[1, 1].set_xlabel('Iterations')
     axs_train[1, 1].set_ylabel('nMSE')
+    axs_train[1, 1].set_ylim(0,1)
     axs_train[1, 1].legend()
 
     # Adjust layout to prevent overlap

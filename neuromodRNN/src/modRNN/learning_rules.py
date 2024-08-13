@@ -419,6 +419,9 @@ def compute_grads(batch:Dict[str, Array], state,optimization_loss_fn:Callable, L
         # Guarantee that local connectivity is kept (otherwise, e-prop will lead to growth of new synapses)
         if local_connectivity:
             grads['ALIFCell_0']['recurrent_weights'] *= state.spatial_params['ALIFCell_0']['M']
+        
+        # Guarantee readout sparsity is kept        
+        grads['ReadOut_0']['readout_weights'] *= state.spatial_params['ReadOut_0']['sparse_readout']
         return y, grads
     
    
@@ -506,7 +509,8 @@ def compute_grads(batch:Dict[str, Array], state,optimization_loss_fn:Callable, L
         grads['ReadOut_0']['readout_weights'] = output_grads(batch_init_carries=(init_e_carries['out'],init_error_grid), 
                                                             batch_inputs=inputs_out, params=params, 
                                                             LS_avail=LS_avail)
-                
+
+        grads['ReadOut_0']['readout_weights'] *= state.spatial_params['ReadOut_0']['sparse_readout']        
         return logits, grads   
     
     else:

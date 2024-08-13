@@ -2,6 +2,7 @@
 
 
 import numpy as np
+from jax.nn import one_hot
 from typing import (
  List, Union 
  )
@@ -99,6 +100,8 @@ def delayed_match_task(n_batches:int,batch_size:int,n_population:int=10, f_backg
     match_idx = np.where(cues_labels[:,0] == cues_labels[:,1])[0]
     labels[match_idx] = 1
     labels = np.repeat(labels[:, np.newaxis], trial_dur, axis=1)
+    # one-hot labels
+    labels = one_hot(labels, 2)
 
     for start_idx in range(0, n_batches, batch_size):
         end_idx = min(start_idx + batch_size, n_batches)
@@ -270,7 +273,7 @@ Parameters:
         right_mask = np.sum(trials == 4, axis=1) > np.sum(trials == 3, axis=1)
         labels[right_mask] = 1
         labels =  np.repeat(labels[:, np.newaxis], max_trial_duration, axis=1)
-
+        labels = one_hot(labels, 2)
         for start_idx in range(0, n_batches, batch_size):
             end_idx = min(start_idx + batch_size, n_batches)
             batch_inputs = inputs[start_idx:end_idx]
@@ -307,7 +310,7 @@ Parameters:
         right_mask = np.sum(trials == 4, axis=1) > np.sum(trials == 3, axis=1)
         labels[right_mask] = 1
         labels =  np.repeat(labels[:, np.newaxis], max_trial_duration, axis=1)
-        
+        labels = one_hot(labels, 2)
         for start_idx in range(0, n_batches, batch_size):
             end_idx = min(start_idx + batch_size, n_batches)
             batch_inputs = inputs[start_idx:end_idx]

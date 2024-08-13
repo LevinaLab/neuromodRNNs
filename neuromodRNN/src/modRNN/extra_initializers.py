@@ -33,7 +33,7 @@ from flax.typing import (
 
 
 
-def generalized_initializer(init_fn:Callable, gain:float=1.0, avoid_self_recurrence:bool=False, local_connectivity:Union[None, Array]=None)-> Callable:
+def generalized_initializer(init_fn:Callable, gain:float=1.0, avoid_self_recurrence:bool=False, mask_connectivity:Union[None, Array]=None)-> Callable:
     """
     Creates a new initializer function that modifies the output of a given initialization function.
 
@@ -79,9 +79,9 @@ def generalized_initializer(init_fn:Callable, gain:float=1.0, avoid_self_recurre
         # Apply the gain scaling
         w *= gain
 
-        # If applicable, apply local connectivity Mask
-        if local_connectivity is not None:
-            w = w * local_connectivity
+        # If applicable, apply connectivity Mask
+        if mask_connectivity is not None:
+            w = w * mask_connectivity
 
         # Subtract the identity matrix if required
         if avoid_self_recurrence:
@@ -162,6 +162,71 @@ def initialize_connectivity_mask(local_connectivity:bool, gridshape:Tuple[int, i
 
     return initializer
 
+
+def initialize_sparsity_mask(sparse_connectivity:bool, shape:Tuple[int, ...], key:PRNGKey, sparsity:float, dtype:Dtype =jnp.float32):
+    """
+    Creates a new initializer function for initializing output sparsity mask.
+
+    If sparsity is required, generates mask array to guarantee this requirement. Mask consists of 0s and 1s, with 0 indicating no connection between the respectively pre and post synaptic neurons, and 1 a possible connection.
+    Otherwise, returns array of ones (which is a sort of identity mask).
+    The position of the 1 entries is chosen randomly, to achieve ~ sparsity% of connections
+    Parameters
+    ----------
+    sparse_connectivity : bool
+        Boolean value indicating if layer has random sparse pattern
+    shape: Tuple[int,], 
+        Tuple containing shape of mask (should be same as shape of weights to me masked)
+    key: PRNGKey
+        PRNGkey for random number generator
+    sparsity: float
+        Float between 0. and 1. Indicates the desire percentage of exiting connections in the layer
+
+    dtype: Dtype, default is float32
+        Dtype of mask
+
+     
+    
+    Returns
+    -------
+    callable
+        A new initializer function that takes the arguments (key, shape, dtype) and returns a mask array as described.
+
+    """
+    def initializer(key=key, shape=shape, dtype=dtype):
+
+        # if local_connectivity True, build mask according to spatial embedding        
+        if sparse_connectivity:
+            
+            # Create a zeros array with desired shape
+            mask = jnp.zeros(shape, dtype=dtype)
+            
+            # Calculate the total number of elements and the number of 1s needed
+            rows, cols = shape
+            total_elements = rows * cols
+            num_ones = int(total_elements * sparsity)   # ~ sparsity of the total elements
+            
+            # Randomly select active connections (no replacement, so that no conneciton is chosen twice)
+            flat_indices = random.choice(key, total_elements, shape=(num_ones,), replace=False)
+    
+            # Convert flat indices to 2D indices
+            row_indices = flat_indices // cols
+            col_indices = flat_indices % cols
+
+            # Introduce 1s at chosen postions
+            mask = mask.at[row_indices, col_indices].set(1)
+
+            # for recurrent connection, all cells can be both pre and post depending on the connection, so therefore same locations for pre and post
+            return mask
+                                        
+        # If local_connectivivity is False, mask is just ones, so that it does`t change the weights                             
+        else:
+            
+            return  nn.initializers.ones(key=key, shape=shape, dtype=dtype)
+
+    return initializer
+
+
+
 def initialize_neurons_position(gridshape:Tuple[int, int], key: PRNGKey, n_rec: int, dtype:Dtype =jnp.float32):
     """
     Creates a new initializer function for initializing positions of neuron in a 2D grid.
@@ -202,7 +267,7 @@ def initialize_neurons_position(gridshape:Tuple[int, int], key: PRNGKey, n_rec: 
 
 
 
-def feedback_weights_initializer(init_fn: Callable,key:PRNGKey, shape:Tuple[int, ...], weights_out: Array, feedback: str, gain:float=1.0) -> Callable:
+def feedback_weights_initializer(init_fn: Callable,key:PRNGKey, shape:Tuple[int, ...], weights_out: Array, sparsity_mask:Array, feedback: str, gain:float=1.0) -> Callable:
     """
     Creates an initializer function for feedback weights based on the specified feedback type.
 
@@ -248,7 +313,7 @@ def feedback_weights_initializer(init_fn: Callable,key:PRNGKey, shape:Tuple[int,
             return weights_out
         elif feedback== 'Random':
             w = init_fn(key, shape, dtype)
-            return  w * gain
+            return  w * gain * sparsity_mask
         else:
             raise NotImplementedError("The requested feedback mode `{}` has not been implemented yet".format(feedback))
     return initializer

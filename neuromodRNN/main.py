@@ -41,7 +41,7 @@ class NetworkArchitecture:
     feedback: str = "Symmetric"
     gridshape: Tuple[int, int] = (10, 10)
     n_neuromodulators: int =1
-   
+    sparse_readout_connectivity: bool = False
 
 
 @dataclass
@@ -59,7 +59,7 @@ class NetworkParams:
     seed: int = 42
     k: float = 0 # decay of diffusion
     radius:int = 1 # radius of difussion kernel,should probably be kept as one
-    
+    readout_sparsity: float = 0.1
 
 @dataclass
 class TrainParams:
