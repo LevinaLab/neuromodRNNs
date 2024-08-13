@@ -6,6 +6,10 @@ net_arch:
   local_connectivity: true
   sigma: 0.012
   feedback: Symmetric
+  gridshape:
+  - 10
+  - 10
+  n_neuromodulators: 1
 net_params:
   thr: 0.6
   tau_m: 20.0
@@ -22,6 +26,8 @@ net_params:
   - 0.5
   dt: 1.0
   seed: 42
+  k: 0.0
+  radius: 1
 train_params:
   lr: 0.001
   train_batch_size: 64
@@ -32,11 +38,11 @@ train_params:
   stop_criteria: 0.95
   f_target: 10.0
   c_reg: 1.0
+  learning_rule: BBPT
 task:
   task_name: pattern_generation
   task_type: regression
-  LS_available: ???
-  LS_avail: -1
+  LS_avail: 0
   seed: null
   frequencies:
   - 0.5
