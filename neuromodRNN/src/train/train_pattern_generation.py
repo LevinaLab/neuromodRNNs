@@ -42,12 +42,12 @@ TrainState = train_state.TrainState
 
 def model_from_config(cfg)-> LSSN:
   """Builds the LSSN model from a config.
-  
+
     Note: not passing beta and b_out, because their functionality are not fully implemented
     and it will only work correclty with their default values. Also not passing any of the weight or
     carries init functions but they can be modified after initialization, before training starts. 
   """
-  
+
   # generate different seed buy drawing random large ints
   key = random.PRNGKey(cfg.net_params.seed)  
   subkey, key = random.split(key)
@@ -76,22 +76,23 @@ def model_from_config(cfg)-> LSSN:
               dt=cfg.net_params.dt,
               k=cfg.net_params.k,
               radius=cfg.net_params.radius,
+              learning_rule=cfg.train_params.learning_rule
                                   
-              )
+  )
   return model 
 
-def get_initial_params(rng:PRNGKey, model:LSSN, input_shape:Tuple[int,...])->Tuple[Dict[str:Array]]:
+def get_initial_params(rng:PRNGKey, model:LSSN, input_shape:Tuple[int,...])->Tuple[Dict[str,Array]]:
   """Returns randomly initialized parameters, eligibility parameters and connectivity mask."""
   dummy_x = jnp.ones(input_shape)
   variables = model.init(rng, dummy_x)
   return variables['params'], variables['eligibility params'], variables['spatial params']
     
 
-def get_init_eligibility_carries(rng:PRNGKey, model:LSSN, input_shape:Tuple[int,...])->Dict[Dict[str:Array]]:
+def get_init_eligibility_carries(rng:PRNGKey, model:LSSN, input_shape:Tuple[int,...])->Dict[str,Dict[str,Array]]:
   """Returns randomly initialized carries. In the default mode, they are all initialized as zeros arrays"""
   return model.initialize_eligibility_carry(rng, input_shape)
 
-def get_init_error_grid(rng:PRNGKey, model:LSSN, input_shape:Tuple[int,...])->Dict[Dict[str:Array]]:
+def get_init_error_grid(rng:PRNGKey, model:LSSN, input_shape:Tuple[int,...])->Dict[str,Dict[str,Array]]:
    """Return initial error grid initialized as zeros"""
    return model.initialize_grid(rng=rng, input_shape=input_shape)
 
@@ -122,6 +123,21 @@ def create_train_state(rng:PRNGKey, learning_rate:float, model:LSSN, input_shape
   return state
 
 
+def optimization_loss(logits, labels, z, c_reg, f_target, trial_length):
+    
+  if labels.ndim==2: # calling labels what normally people call targets in regression tasks
+      labels = jnp.expand_dims(labels, axis=-1) # this is necessary because target labels might have only (n_batch, n_t) and predictions (n_batch, n_t, n_out=1)
+
+  task_loss = jnp.sum(losses.squared_error(targets=labels, predictions=logits)) # sum over batches and time
+    
+  av_f_rate = learning_utils.compute_firing_rate(z=z, trial_length=trial_length)
+  f_target = f_target / 1000 # f_target is given in Hz, bu av_f_rate is spikes/ms --> Bellec 2020 used the f_reg also in spikes/ms
+  regularization_loss = 0.5 * c_reg * jnp.sum(jnp.square(av_f_rate - f_target))
+  return task_loss + regularization_loss
+ 
+
+
+
 class Metrics(struct.PyTreeNode):
   """Computed metrics."""
 
@@ -136,7 +152,7 @@ def compute_metrics(*, targets: Array, predictions: Array) -> Metrics:
   """
 
   if targets.ndim==2:
-    targets = jnp.expand_dims(targets, axis=-1) 
+    targets = jnp.expand_dims(targets, axis=-1) # this is necessary because targets might have only (n_batch, n_t) and predictions (n_batch, n_t, n_out=1)
   
   loss = losses.squared_error(targets=targets, predictions=predictions) # n_batches, n_t
   
@@ -171,39 +187,29 @@ def normalize_batch_metrics(batch_metrics: Sequence[Metrics]) -> Metrics:
 def train_step(
     state: TrainState,
     batch: Dict[str, Array], # change this, my batch will be different probably
+    optimization_loss_fn: Callable,
     LS_avail: int,    
     local_connectivity: bool,
     f_target: float,
     c_reg: float,
-    learning_rule: str
+    learning_rule: str,
+    task: str
    
 ) -> Tuple[TrainState, Metrics]:
     
     """Train for a single step."""
-
-    # Since not using grads, don't need to keep usual structure of defining loss_fn with params as argument
-    variables = {'params': state.params, 'eligibility params':state.eligibility_params, 'spatial params':state.spatial_params}
-   
-    # the network returns logits
-    recurrent_carries, y = state.apply_fn(variables, batch['input'])  
-                                   
-    
-    
-    # Compute e-prop Updates
-    # the eprop update function expects y to be already the assigned probability
- 
-    
-    # eligiblity_inputs: y_batch, true_y_batch, v,a, A_thr, z, x (recurrent_carries: v,a, A_thr, z,)  
-    eligibility_inputs = (y, batch['label'],batch['trial_duration'], recurrent_carries, batch['input']) # for gradients, labels must be one-hot encoded
-    
+                            
+       
     #  Passing LS_avail will guarantee that it is only available during the last LS_avail    
-    grads = learning_rules.compute_grads(eligibility_inputs = eligibility_inputs, state=state, LS_avail=LS_avail, local_connectivity=local_connectivity, f_target=f_target, c_reg=c_reg, learning_rule=learning_rule)
+    y, grads = learning_rules.compute_grads(batch=batch, state=state, optimization_loss_fn=optimization_loss_fn, 
+                                         LS_avail=LS_avail, local_connectivity=local_connectivity, f_target=f_target, 
+                                         c_reg=c_reg, learning_rule=learning_rule,
+                                         task=task)
     
     new_state = state.apply_gradients(grads=grads)
 
     # For computing loss, we use logits instead of already computed softmax
-    metrics = compute_metrics(targets=batch['label'][:,-LS_avail:], predictions=y[:,-LS_avail:,:])   # y has shape (n_batch, n_t, n_out) 
-    
+    metrics = compute_metrics(targets=batch['label'][:,-LS_avail:], predictions=y[:,-LS_avail:,:])    
     return new_state, metrics
 
 def train_epoch(
@@ -211,17 +217,21 @@ def train_epoch(
     state: TrainState,
     train_batches: Iterable,
     epoch: int,
+    optimization_loss_fn: Callable,
     LS_avail:int,
     local_connectivity:bool,
     f_target: float,
     c_reg: float,
-    learning_rule:str
+    learning_rule:str,
+    task:str
     ) -> Tuple[TrainState, Metrics]:
 
     """Train for a single epoch."""
     batch_metrics = []
     for batch_idx, batch in enumerate(train_batches):
-        state, metrics = train_step_fn(state=state, batch=batch, LS_avail=LS_avail, local_connectivity=local_connectivity, f_target=f_target, c_reg=c_reg, learning_rule=learning_rule)
+        state, metrics = train_step_fn(state=state, batch=batch, optimization_loss_fn=optimization_loss_fn,
+                                       LS_avail=LS_avail, local_connectivity=local_connectivity,
+                                       f_target=f_target, c_reg=c_reg, learning_rule=learning_rule, task=task)
         batch_metrics.append(metrics)
 
     # Compute the metrics for this epoch.
@@ -304,9 +314,13 @@ def train_and_evaluate(
     accuracy_eval = []
     iterations = []
     # Compile step functions.
-    train_step_fn = jax.jit(train_step, static_argnames=["LS_avail", "local_connectivity", "learning_rule"])
+    train_step_fn = jax.jit(train_step, static_argnames=["LS_avail", "local_connectivity", "learning_rule", "task"])
     eval_step_fn = jax.jit(eval_step, static_argnames=["LS_avail"])
     
+
+    # this is a trick to pass a Callable as argument of jitted function
+    optimization_loss_fn = optimization_loss
+    closure = jax.tree_util.Partial(optimization_loss_fn) 
   # Prepare Model Check pointer
 
   # ckpt = {'model': state}
@@ -343,9 +357,9 @@ def train_and_evaluate(
         
         # Train for one epoch. 
         logger.info("\t Starting Epoch:{} ".format(epoch))     
-        state, train_metrics = train_epoch(train_step_fn=train_step_fn, state=state, train_batches=train_batch, epoch=epoch, LS_avail=cfg.task.LS_avail,
+        state, train_metrics = train_epoch(train_step_fn=train_step_fn, state=state, train_batches=train_batch, epoch=epoch, optimization_loss_fn=closure, LS_avail=cfg.task.LS_avail,
                                             local_connectivity=model.local_connectivity, f_target=cfg.train_params.f_target, c_reg=cfg.train_params.c_reg,
-                                            learning_rule=cfg.train_params.learning_rule)
+                                            learning_rule=cfg.train_params.learning_rule, task=cfg.task.task_type)
        
        
         

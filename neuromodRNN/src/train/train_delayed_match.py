@@ -13,7 +13,6 @@ from optax import losses
 from flax.training import train_state, orbax_utils
 from flax import struct
 from flax.linen import softmax
-from jax.nn import one_hot
 from jax import random, numpy as jnp
 
 import sys
@@ -76,22 +75,22 @@ def model_from_config(cfg)-> LSSN:
               dt=cfg.net_params.dt,
               k=cfg.net_params.k,
               radius=cfg.net_params.radius,
-                            
-              )
+              learning_rule=cfg.train_params.learning_rule                            
+  )
   return model 
 
-def get_initial_params(rng:PRNGKey, model:LSSN, input_shape:Tuple[int,...])->Tuple[Dict[str:Array]]:
+def get_initial_params(rng:PRNGKey, model:LSSN, input_shape:Tuple[int,...])->Tuple[Dict[str,Array]]:
   """Returns randomly initialized parameters, eligibility parameters and connectivity mask."""
   dummy_x = jnp.ones(input_shape)
   variables = model.init(rng, dummy_x)
   return variables['params'], variables['eligibility params'], variables['spatial params']
     
 
-def get_init_eligibility_carries(rng:PRNGKey, model:LSSN, input_shape:Tuple[int,...])->Dict[Dict[str:Array]]:
+def get_init_eligibility_carries(rng:PRNGKey, model:LSSN, input_shape:Tuple[int,...])->Dict[str,Dict[str,Array]]:
   """Returns randomly initialized carries. In the default mode, they are all initialized as zeros arrays"""
   return model.initialize_eligibility_carry(rng, input_shape)
 
-def get_init_error_grid(rng:PRNGKey, model:LSSN, input_shape:Tuple[int,...])->Dict[Dict[str:Array]]:
+def get_init_error_grid(rng:PRNGKey, model:LSSN, input_shape:Tuple[int,...])->Dict[str,Dict[str,Array]]:
    """Return initial error grid initialized as zeros"""
    return model.initialize_grid(rng=rng, input_shape=input_shape)
 
@@ -121,7 +120,22 @@ def create_train_state(rng:PRNGKey, learning_rate:float, model:LSSN, input_shape
                                   )
   return state
 
-# TODO: change this accordingly
+
+def optimization_loss(logits, labels, z, c_reg, f_target, trial_length):    
+  """ Loss to be minimized by network, including task loss and any other, e.g. here also firing regularization
+      Notes:
+        1. logits is assumed to be non normalized logits
+        2. labels are assumed to be one-hot encoded
+  """
+  # notice that optimization_loss is only called inside of learning_rules.compute_grads, and labels are already passed there as one-hot code and y is already softmax transformed
+  task_loss = jnp.sum(losses.softmax_cross_entropy(logits=logits, labels=labels) ) # sum over batches and time
+  
+  av_f_rate = learning_utils.compute_firing_rate(z=z, trial_length=trial_length)
+  f_target = f_target / 1000 # f_target is given in Hz, bu av_f_rate is spikes/ms --> Bellec 2020 used the f_reg also in spikes/ms
+  regularization_loss = 0.5 * c_reg * jnp.sum(jnp.square(av_f_rate - f_target))
+  return task_loss + regularization_loss
+
+
 class Metrics(struct.PyTreeNode):
   """Computed metrics."""
 
@@ -131,17 +145,17 @@ class Metrics(struct.PyTreeNode):
 
 def compute_metrics(*, labels: Array, logits: Array) -> Metrics:
   """Computes the metrics, summed across the batch if a batch is provided.
-     Normalization across the batches is done in a different function.
-     The logits and labels should already be croped for time where the are actually available 
+     Normalization across the batches is done in a different function. 
+     Notes:
+     1. Important, expect labels to be one-hot encoded and logits unormalized
   """
 
-
-  # softmax_cross_entropy expects labels to be one-hot encoded
-  loss = losses.softmax_cross_entropy(labels=one_hot(labels,2), logits=logits) 
-  
+  # softmax_cross_entropy expects labels to be one-hot encoded 
+  loss = losses.softmax_cross_entropy(labels=labels, logits=logits)   
   inference = jnp.argmax(jnp.sum(logits, axis=1), axis=-1) #  jnp.argmax(jnp.sum(logits, axis=1), axis=-1) # sum the the output overtime, generate cummulative evidence. Select the one with higher evidence. (n_batches,)
-    
-  binary_accuracy = jnp.equal(inference, labels[:,0]) 
+  label = jnp.argmax(labels[:,0,:], axis=-1) # labels are same for every time step in the task
+  binary_accuracy = jnp.equal(inference, label) 
+ 
   
   # metrics are summed over batches, counts are stored to normalize it later. This is important if paralellizing through multiple devices
   return Metrics(
@@ -166,39 +180,28 @@ def normalize_batch_metrics(batch_metrics: Sequence[Metrics]) -> Metrics:
 def train_step(
     state: TrainState,
     batch: Dict[str, Array], # change this, my batch will be different probably
+    optimization_loss_fn: Callable, 
     LS_avail: int,    
     local_connectivity: bool,
     f_target: float,
     c_reg: float,
-    learning_rule: str 
+    learning_rule: str,
+    task: str
    
 ) -> Tuple[TrainState, Metrics]:
     
-    """Train for a single step."""
-
-    # Since not using grads, don't need to keep usual structure of defining loss_fn with params as argument
-    variables = {'params': state.params, 'eligibility params':state.eligibility_params, 'spatial params':state.spatial_params}
-   
-    # the network returns logits
-    recurrent_carries, output_logits = state.apply_fn(variables, batch['input'])                                  
-    
-    
-    # Compute e-prop Updates
-    # the eprop update function expects y to be already the assigned probability
-    # for classification task.     
-    y = softmax(output_logits) # (n_batches, n_t, n_)
-    
-    # eligiblity_inputs: y_batch, true_y_batch, v,a, A_thr, z, x (recurrent_carries: v,a, A_thr, z,)  
-    eligibility_inputs = (y, one_hot(batch['label'],2),batch['trial_duration'], recurrent_carries, batch['input']) # for gradients, labels must be one-hot encoded
-
+    """Train for a single step."""                                 
+       
     #  Passing LS_avail will guarantee that it is only available during the last LS_avail    
-    grads = learning_rules.compute_grads(eligibility_inputs = eligibility_inputs, state=state, LS_avail=LS_avail, local_connectivity=local_connectivity, f_target=f_target, c_reg=c_reg, learning_rule=learning_rule)
+    y, grads = learning_rules.compute_grads(batch=batch, state=state, optimization_loss_fn=optimization_loss_fn, 
+                                         LS_avail=LS_avail, local_connectivity=local_connectivity, f_target=f_target, 
+                                         c_reg=c_reg, learning_rule=learning_rule,
+                                         task=task)
     
     new_state = state.apply_gradients(grads=grads)
 
     # For computing loss, we use logits instead of already computed softmax
-    metrics = compute_metrics(labels=batch['label'][:,-LS_avail:], logits=output_logits[:,-LS_avail:,:])    
-    
+    metrics = compute_metrics(labels=batch['label'][:,-LS_avail:,:], logits=y[:,-LS_avail:,:])    
     return new_state, metrics
 
 def train_epoch(
@@ -206,17 +209,22 @@ def train_epoch(
     state: TrainState,
     train_batches: Iterable,
     epoch: int,
+    optimization_loss_fn: callable,
     LS_avail:int,
     local_connectivity:bool,
     f_target: float,
     c_reg: float ,
-    learning_rule:str
+    learning_rule:str,
+    task: str
     ) -> Tuple[TrainState, Metrics]:
 
     """Train for a single epoch."""
     batch_metrics = []
     for batch_idx, batch in enumerate(train_batches):
-        state, metrics = train_step_fn(state=state, batch=batch, LS_avail=LS_avail, local_connectivity=local_connectivity, f_target=f_target, c_reg=c_reg, learning_rule=learning_rule)
+        state, metrics = train_step_fn(state=state, batch=batch, optimization_loss_fn= optimization_loss_fn,
+                                        LS_avail=LS_avail, local_connectivity=local_connectivity, f_target=f_target, 
+                                        c_reg=c_reg, learning_rule=learning_rule, task=task
+        )
         batch_metrics.append(metrics)
 
     # Compute the metrics for this epoch.
@@ -239,9 +247,8 @@ def eval_step(
 
     variables = {'params': state.params, 'eligibility params':state.eligibility_params, 'spatial params':state.spatial_params}
    
-    _, y = state.apply_fn(variables,  batch['input'] )
-    metrics = compute_metrics(labels=batch['label'][:,-LS_avail:], logits=y[:,-LS_avail:,:]) # metrics are computed only for decision making period
-    
+    _, logits = state.apply_fn(variables,  batch['input'] )
+    metrics = compute_metrics(labels=batch['label'][:,-LS_avail:], logits=logits[:,-LS_avail:,:]) # metrics are computed only for decision making period    
     return metrics
 
 def evaluate_model(
@@ -299,9 +306,12 @@ def train_and_evaluate(
     accuracy_eval = []
     iterations = []
     # Compile step functions.
-    train_step_fn = jax.jit(train_step, static_argnames=["LS_avail", "local_connectivity", "learning_rule"])
+    train_step_fn = jax.jit(train_step, static_argnames=["LS_avail", "local_connectivity", "learning_rule", "task"])
     eval_step_fn = jax.jit(eval_step, static_argnames=["LS_avail"])
-    
+   
+   # this is a trick to pass a Callable as argument of jitted function
+    optimization_loss_fn = optimization_loss
+    closure = jax.tree_util.Partial(optimization_loss_fn) 
   # Prepare Model Check pointer
 
   # ckpt = {'model': state}
@@ -338,9 +348,9 @@ def train_and_evaluate(
         
         # Train for one epoch. 
         logger.info("\t Starting Epoch:{} ".format(epoch))     
-        state, train_metrics = train_epoch(train_step_fn=train_step_fn, state=state, train_batches=train_batch, epoch=epoch, LS_avail=cfg.task.LS_avail,
+        state, train_metrics = train_epoch(train_step_fn=train_step_fn, state=state, train_batches=train_batch, epoch=epoch, optimization_loss_fn=closure, LS_avail=cfg.task.LS_avail,
                                             local_connectivity=model.local_connectivity, f_target=cfg.train_params.f_target, c_reg=cfg.train_params.c_reg,
-                                            learning_rule=cfg.train_params.learning_rule)
+                                            learning_rule=cfg.train_params.learning_rule, task=cfg.task.task_type)
        
        
         
@@ -361,7 +371,7 @@ def train_and_evaluate(
                 test_batch = tasks.delayed_match_task(n_batches= cfg.train_params.test_batch_size, 
                                                              batch_size=cfg.train_params.test_sub_batch_size, 
                                                              n_population=cfg.net_arch.n_neurons_channel,
-                                                             background_f=cfg.task.f_background, f_input=cfg.task.f_input,
+                                                             f_background=cfg.task.f_background, f_input=cfg.task.f_input,
                                                              p = cfg.task.p, fixation_time=cfg.task.fixation_time, 
                                                              cue_time=cfg.task.cue_time,  delay_time=cfg.task.delay_time,
                                                              seed = cfg.task.seed )
