@@ -2,7 +2,7 @@
 
 
 
-from jax import random, custom_vjp, numpy as jnp
+from jax import lax, random, custom_vjp, numpy as jnp
 from flax import linen as nn 
 from flax.linen import initializers
 from flax.linen.module import compact, nowrap
@@ -45,18 +45,20 @@ from flax.typing import (
 
 # This is only necessary for using autodiff. Allows autodiff to use the pseudo-derivative for computing derivative of hidden state with respect to spike 
 @custom_vjp
-def spike(v_scaled, gamma):
+def spike(v_scaled, gamma, r):
     z = jnp.float32(jnp.where(v_scaled > 0, jnp.array(1), jnp.array(0)))
     return z
 # forwardpass: spike function
-def spike_fwd(v_scaled, gamma):
-    z = spike(v_scaled, gamma)
-    return z, (v_scaled, gamma)
+def spike_fwd(v_scaled, gamma, r):
+    z = spike(v_scaled, gamma, r)
+    return z, (v_scaled, gamma, r)
 # backpass: pseudoderivative
 def spike_bwd(res, g):
-    v_scaled, gamma = res
-    pseudo_derivative = gamma * jnp.maximum(jnp.zeros_like(v_scaled), (1 - jnp.abs(v_scaled)))
-    return g * pseudo_derivative, None # None ensures no gradient is computed for gamma
+    v_scaled, gamma, r = res
+    # if neuron is refractory period, pseudo derivative should be 0
+    no_refractory = (r == 0)
+    pseudo_derivative = no_refractory * gamma * jnp.maximum(jnp.zeros_like(v_scaled), (1 - jnp.abs(v_scaled)))
+    return g * pseudo_derivative, None, None # None ensures no gradient is computed for gamma and r
 
 spike.defvjp(spike_fwd, spike_bwd)
 
@@ -96,6 +98,7 @@ class ALIFCell(nn.recurrent.RNNCellBase):
     refractory_period: int = 5 # refractory period in ms.
     k: float = 0 # decay rate of diffusion.
     radius:int = 1 # radius of difussion kernel,should probably be kept as one.
+    learning_rule:str = "e_prop_hardcoded" # indicate which learning rule is being used. Important to block gradients for e_prop_autodiff. For hardcoded versions doesnt affect.
 
 
     # Initializers    
@@ -214,16 +217,24 @@ class ALIFCell(nn.recurrent.RNNCellBase):
         no_refractory = (r == 0)
 
         # compute v at time t
-        new_v =  (alpha.value * v + jnp.dot(z, w_rec) + jnp.dot(x, w_in) - z * thr.value) #important, z and x should have dimension n_b, n_features and w n_features, output dimension
-    
+        if self.learning_rule == "e_prop_autodiff":
+            # for using autodiff with e_prop, need to guarantee that gradient of z doesnt propagate to next steps through the recurrent spike transmissio. Note that e-prop also doesnt count in the effect of the 
+            # the reset term in the approximated grads, thus also blocking here.
+
+            local_z = lax.stop_gradient(z) # use for gradients that are not considered in e-prop: spike propagation and reset term
+            new_v =  (alpha.value * v + (jnp.dot(local_z, w_rec)) + jnp.dot(x, w_in) - local_z* thr.value)#important, z and x should have dimension n_b, n_features and w n_features, output dimension
+        
+        else:
+            new_v =  (alpha.value * v + (jnp.dot(z, w_rec)) + jnp.dot(x, w_in) - z* thr.value)#important, z and x should have dimension n_b, n_features and w n_features, output dimension
+        
         # compute a at time t        
-        new_a = rho.value * a + z
+        new_a = rho.value * a + z # for adaptation, z is local and doesn`t need to be stopped even for autodiff e-prop
         
         # compute A_thr at time t
         new_A_thr =   thr.value + new_a * betas.value # compute value of adapted threshold at t+1  
         
         # compute z at time t
-        new_z = no_refractory * spike((new_v-new_A_thr)/thr.value, gamma.value)  
+        new_z = no_refractory * spike((new_v-new_A_thr)/thr.value, gamma.value, r)  
 
         # update refractory period at time t
         new_r = jnp.where(new_z>0, jnp.ones_like(r) * self.refractory_period, jnp.maximum(0, r-1))
@@ -451,15 +462,17 @@ class LSSN(nn.Module):
     
     # ALIF params
     thr: float = 0.6 # Base firing threshold for neurons.
-    tau_m: float = 0.8 # Membrane time constant (ms).
+    tau_m: float = 20 # Membrane time constant (ms).
     tau_adaptation: float = 2000  # Time constant for adaptation (ms).
     beta: float= 1.7  # Modulator to initialized adaptation strength for ALIF. Notice that this is not the value of the adaptation, see at ALIF module method __call__ how it is used to initialize the value.
-    gamma: float = 1.0 # Dampening factor for pseudo-derivative.
+    gamma: float = 0.3 # Dampening factor for pseudo-derivative.
     refractory_period: int = 5 # refractory period in ms.
     k: float = 0 # decay rate of diffusion.
     radius:int = 1 # radius of difussion kernel,should probably be kept as one.
+    learning_rule:str = "e_prop_hardcoded" # indicate which learning rule is being used. Important to block gradients for e_prop_autodiff. For hardcoded versions doesnt affect.  
+    
     # Readout params
-    tau_out: float = 0.8  # Time constant for the output layer (ms).
+    tau_out: float = 20  # Time constant for the output layer (ms).
     feedback: str = "Symmetric"  # Type of feedback ('Symmetric' or 'Random').
 
 
@@ -519,7 +532,7 @@ class LSSN(nn.Module):
         # Define the layers (nn.RNN does the scan over time)
         recurrent = nn.RNN(ALIFCell(n_ALIF=self.n_ALIF, n_LIF=self.n_LIF, local_connectivity=self.local_connectivity, sigma = self.sigma,
                                     gridshape= self.gridshape, n_neuromodulators=self.n_neuromodulators, thr=self.thr, tau_m=self.tau_m, tau_adaptation=self.tau_adaptation,
-                                    beta = self.beta, gamma = self.gamma, refractory_period = self.refractory_period, k=self.k, radius=self.radius,
+                                    beta = self.beta, gamma = self.gamma, refractory_period = self.refractory_period, k=self.k, radius=self.radius, learning_rule=self.learning_rule,
                                     v_init = self.v_init, a_init=self.a_init, A_thr_init=self.A_thr_init, z_init=self.z_init, r_init=self.r_init, weights_init = self.ALIF_weights_init,
                                     gain = (self.gain[0], self.gain[1]), local_connectivity_seed= self.local_connectivity_seed, cell_loc_seed= self.cell_loc_seed,
                                     diff_kernel_seed=self.diff_kernel_seed, dt=self.dt, param_dtype=self.param_dtype), variable_broadcast=("params", 'eligibility params', 'spatial params'), name="Recurrent"
