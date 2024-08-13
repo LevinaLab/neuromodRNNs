@@ -2,7 +2,7 @@
 #SBATCH --ntasks=1                # Number of tasks (see below)
 #SBATCH --cpus-per-task=1         # Number of CPU cores per task
 #SBATCH --nodes=1                 # Ensure that all cores are on one machine
-#SBATCH --time=0-05:00            # Runtime in D-HH:MM
+#SBATCH --time=0-03:00            # Runtime in D-HH:MM
 #SBATCH --partition=2080-galvani    # Partition to submit to
 #SBATCH --gres=gpu:1              # optionally type and number of gpus
 #SBATCH --mem=16G                # Memory pool for all cores (see also --mem-per-cpu)
@@ -28,10 +28,9 @@ echo "---------------------------------"
 # e.g. python train.py -c cumulative -t parity -s 0 -n 0
 
 
-python main.py task="delayed_match" save_paths.experiment_name="test_BPTT" save_paths.condition="BPTT_full_connectivity" net_params.tau_adaptation=1400 train_params.c_reg=0.1 train_params.learning_rule="BPTT" net_arch.local_connectivity=False
+python main.py save_paths.experiment_name="test_BPTT" save_paths.condition="BPTT" train_params.learning_rule="BPTT"
 
-python main.py task="delayed_match" save_paths.experiment_name="test_BPTT" save_paths.condition="BPTT" net_params.tau_adaptation=1400 train_params.c_reg=0.1 train_params.learning_rule="BPTT"
-
+python main.py save_paths.experiment_name="test_BPTT" save_paths.condition="test_BPTT_full_connectivity" train_params.learning_rule="BPTT" net_arch.local_connectivity=False
 
 
 

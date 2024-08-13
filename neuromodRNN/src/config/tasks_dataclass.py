@@ -24,8 +24,8 @@ class CueAccumulation(Task):
     seed: Optional[int] = None
     min_delay: int = 500
     max_delay:int = 1500
-    f_input: int = 40
-    f_background: int = 10
+    f_input: float = 40.
+    f_background: float = 10.
     t_cue: int = 100
     t_cue_spacing: int = 150
     p: float = 0.5
@@ -39,8 +39,8 @@ class DelayedMatch(Task):
     task_type: str = "classification"
     LS_avail: int = 1    
     seed: Optional[int] = None
-    f_input: int = 40
-    f_background: int = 10
+    f_input: float = 40.
+    f_background: float = 10.
     fixation_time: int = 50
     cue_time: int = 150
     delay_time: int=750 
@@ -55,7 +55,7 @@ class PatternGeneration(Task):
     seed: Optional[int] = None
     frequencies: List[float] = field(default_factory=lambda: [0.5, 1., 2., 3., 4.])
     weights: List[float] = field(default_factory=lambda: [0.2,0.2,0.2,0.2,0.2])
-    f_input: int = 10
+    f_input: float = 10.
     trial_dur: int = 2000
 
 

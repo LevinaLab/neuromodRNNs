@@ -28,12 +28,10 @@ echo "---------------------------------"
 # e.g. python train.py -c cumulative -t parity -s 0 -n 0
 
 
-python main.py task="delayed_match" save_paths.experiment_name="test_BPTT" save_paths.condition="BPTT_full_connectivity" net_params.tau_adaptation=1400 train_params.c_reg=0.1 train_params.learning_rule="BPTT" net_arch.local_connectivity=False
 
-python main.py task="delayed_match" save_paths.experiment_name="test_BPTT" save_paths.condition="BPTT" net_params.tau_adaptation=1400 train_params.c_reg=0.1 train_params.learning_rule="BPTT"
+python main.py task="pattern_generation" save_paths.experiment_name="test_BPTT" save_paths.condition="BPTT_full_connectivity" train_params.learning_rule="BPTT" net_params.seed=1 net_arch.gridshape=[20,20] train_params.stop_criteria=0.1 net_arch.n_neurons_channel=100 net_arch.n_ALIF=0 net_arch.n_LIF=400 net_arch.n_out=1 net_params.tau_m=30 net_params.tau_out=30 net_params.refractory_period=2 train_params.c_reg=100 train_params.train_sub_batch_size=32 train_params.test_sub_batch_size=32 train_params.test_batch_size=128 train_params.iterations=1000 task.trial_dur=2000 net_arch.local_connectivity=False
 
-
-
+python main.py task="pattern_generation" save_paths.experiment_name="test_BPTT" save_paths.condition="BPTT" train_params.learning_rule="BPTT" net_params.seed=1 net_arch.gridshape=[20,20] train_params.stop_criteria=0.1 net_arch.n_neurons_channel=100 net_arch.n_ALIF=0 net_arch.n_LIF=400 net_arch.n_out=1 net_params.tau_m=30 net_params.tau_out=30 net_params.refractory_period=2 train_params.c_reg=100 train_params.train_sub_batch_size=32 train_params.test_sub_batch_size=32 train_params.test_batch_size=128 train_params.iterations=1000 task.trial_dur=2000 
 
 
 conda deactivate
