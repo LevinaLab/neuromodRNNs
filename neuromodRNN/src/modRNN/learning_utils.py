@@ -49,7 +49,7 @@ def eligibility_trace(v_eligibility_vector: Array, a_eligibility_vector: Array, 
 
 def compute_eligibitity_trace(old_eligibility_carries:Dict[str,Array], eligibility_input: Tuple[Array, Array, Array], eligibility_params: Dict[str,Dict]) -> Tuple[Dict[str,Array], Array]:
     """
-    Compute the low pass eligibility trace and update the eligibility vectors (carries) for one time step.
+    Compute the eligibility trace and update the eligibility vectors (carries) for one time step.
 
     Parameters
     ----------
@@ -154,7 +154,7 @@ def low_pass_eligibility_trace(low_pass_trace:Array, eligibility_trace:Array, el
     Carry and output are the low-pass filtered version of the eligibility trace at time t.
     """
     kappa = eligibility_params['ReadOut_0']['kappa'] 
-    return eligibility_trace + kappa * low_pass_trace, eligibility_trace + kappa * low_pass_trace
+    return (1-kappa) * eligibility_trace + kappa * low_pass_trace, eligibility_trace + kappa * low_pass_trace
 
 def batched_low_pass_eligibility_trace(low_pass_trace:Array, eligibility_trace:Array, eligibility_params:Dict[str, Array]):
     """Batched version of compute_eligibility_trace"""

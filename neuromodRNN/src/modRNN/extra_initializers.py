@@ -208,8 +208,7 @@ def initialize_sparsity_mask(sparse_connectivity:bool, shape:Tuple[int, ...], ke
             num_ones = int(n_pre_neurons * sparsity)   # ~ sparsity % of pre neurons having connections to post
             
             # Randomly select pre neurons with connectivity (no replacement, so that no conneciton is chosen twice)
-            pre_indices = random.choice(key, n_pre_neurons, shape=(num_ones,), replace=False)
-            print(pre_indices)
+            pre_indices = random.choice(key, n_pre_neurons, shape=(num_ones,), replace=False)            
             # Introduce 1s at chosen positions
             mask = mask.at[pre_indices, :].set(1)
 

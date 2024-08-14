@@ -160,8 +160,8 @@ def compute_metrics(*, labels: Array, logits: Array) -> Metrics:
   """
   
   # softmax_cross_entropy expects labels to be one-hot encoded 
-  loss = losses.softmax_cross_entropy(labels=labels, logits=logits) 
-
+  loss = losses.softmax_cross_entropy(labels=labels, logits=logits) # (n_b, n_t)
+  loss = jnp.mean(loss, axis=-1) # average over time --> the average over batches is done in normalize_batch_metrics
   # Compute accuracy:
   # Inference: Although in my opnion somehow contradictory, inference is considered the cummulative
   # evidence during period where learning signal is available. Kept this way, but I'm passing as default

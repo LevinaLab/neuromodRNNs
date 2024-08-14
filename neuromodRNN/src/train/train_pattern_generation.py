@@ -387,7 +387,7 @@ def train_and_evaluate(
                                                              f_input =cfg.task.f_input, trial_dur=cfg.task.trial_dur)
                 
                 test_metrics = evaluate_model(eval_step_fn, state, test_batch, epoch, LS_avail=cfg.task.LS_avail)  
-                if test_metrics.normalized_loss < cfg.train_params.stop_criteria:
+                if test_metrics.normalized_loss > cfg.train_params.stop_criteria:
                    break
                 normalized_loss.append(test_metrics.normalized_loss)
               if len(normalized_loss) == 3:

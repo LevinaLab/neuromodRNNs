@@ -370,7 +370,7 @@ class ReadOut(nn.recurrent.RNNCellBase):
         # Forward pass - real valued leaky output neurons (output new y, or equivalently to new mebrane voltage)
         y = carry  # unpack the hidden state: for readout it is only the output at previous step (basically the membrane potential, but kept as y for consistency with paper nomenclature)
 
-        new_y = kappa.value * y + jnp.dot(z, w_out) + self.b_out  #TODO: implement bias
+        new_y = kappa.value * y + (1-kappa.value) * jnp.dot(z, w_out) + self.b_out  #TODO: implement bias
                     
         return new_y, new_y    
         
