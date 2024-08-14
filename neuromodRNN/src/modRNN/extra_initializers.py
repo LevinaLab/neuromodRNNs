@@ -202,18 +202,15 @@ def initialize_sparsity_mask(sparse_connectivity:bool, shape:Tuple[int, ...], ke
             
             # Calculate the total number of elements and the number of 1s needed
             rows, cols = shape
-            total_elements = rows * cols
-            num_ones = int(total_elements * sparsity)   # ~ sparsity of the total elements
+            n_pre_neurons = rows
             
-            # Randomly select active connections (no replacement, so that no conneciton is chosen twice)
-            flat_indices = random.choice(key, total_elements, shape=(num_ones,), replace=False)
-    
-            # Convert flat indices to 2D indices
-            row_indices = flat_indices // cols
-            col_indices = flat_indices % cols
-
-            # Introduce 1s at chosen postions
-            mask = mask.at[row_indices, col_indices].set(1)
+            num_ones = int(n_pre_neurons * sparsity)   # ~ sparsity % of pre neurons having connections to post
+            
+            # Randomly select pre neurons with connectivity (no replacement, so that no conneciton is chosen twice)
+            pre_indices = random.choice(key, n_pre_neurons, shape=(num_ones,), replace=False)
+            print(pre_indices)
+            # Introduce 1s at chosen positions
+            mask = mask.at[pre_indices, :].set(1)
 
             # for recurrent connection, all cells can be both pre and post depending on the connection, so therefore same locations for pre and post
             return mask
