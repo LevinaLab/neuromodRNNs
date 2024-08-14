@@ -167,7 +167,8 @@ def initialize_sparsity_mask(sparse_connectivity:bool, shape:Tuple[int, ...], ke
     """
     Creates a new initializer function for initializing output sparsity mask.
 
-    If sparsity is required, generates mask array to guarantee this requirement. Mask consists of 0s and 1s, with 0 indicating no connection between the respectively pre and post synaptic neurons, and 1 a possible connection.
+    If sparsity is required, generates mask array to guarantee this requirement. In this sparsity model, either a pre-synaptic neuron has connection to all post-synaptic neurons or 
+    it doesn't have any connections to any postsynaptic neuron. Mask consists of 0s and 1s, with 0 indicating no connection between the respectively pre and post synaptic neurons, and 1 a possible connection.
     Otherwise, returns array of ones (which is a sort of identity mask).
     The position of the 1 entries is chosen randomly, to achieve ~ sparsity% of connections
     Parameters
