@@ -362,12 +362,13 @@ def train_and_evaluate(
         state, train_metrics = train_epoch(train_step_fn=train_step_fn, state=state, train_batches=train_batch, epoch=epoch, optimization_loss_fn=closure, LS_avail=cfg.task.LS_avail,
                                             local_connectivity=model.local_connectivity, f_target=cfg.train_params.f_target, c_reg=cfg.train_params.c_reg,
                                             learning_rule=cfg.train_params.learning_rule, task=cfg.task.task_type)
-       
+        
        
         
  
         # Evaluate current model on the validation data.        
-        if (epoch - 1) % 25 == 0:      
+        if (epoch - 1) % 25 == 0: 
+               
             eval_metrics = evaluate_model(eval_step_fn, state, eval_batch, epoch, LS_avail=cfg.task.LS_avail)  
             loss_training.append(train_metrics.loss)
             loss_eval.append(eval_metrics.loss)

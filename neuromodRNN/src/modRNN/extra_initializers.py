@@ -320,7 +320,7 @@ def k_initializer(k, shape) -> Callable:
     Creates an initializer function for neuromodulators diffusion kernels.
     Parameters
     ----------
-    k: diffusion decay parameter. Determines percentage of signal that is destroyed at every time step
+    k: diffusion decay parameter. Determines percentage of signal that is destroyed at every time step. Note that it can be larger than 1, indicating that more neuromodulator arrives later due to same previous error
     key : PRNGKey
         A PRNG key used for random number generation in the initializer function.
     shape : tuple of int (n_modulators, 1, kernel_height, kernel_width)

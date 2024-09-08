@@ -22,8 +22,8 @@ class CueAccumulation(Task):
     LS_avail: int = 1
     n_cues: List[int] = field(default_factory=lambda: [7])
     seed: Optional[int] = None
-    min_delay: int = 500
-    max_delay:int = 1500
+    min_delay: int = 1500
+    max_delay:int = 1501
     f_input: float = 40.
     f_background: float = 10.
     t_cue: int = 100

@@ -7,6 +7,7 @@
 from jax import lax, numpy as jnp
 from jax import value_and_grad
 from jax.nn import softmax
+import jax
 import os
 import sys
 
@@ -430,7 +431,7 @@ def compute_grads(batch:Dict[str, Array], state,optimization_loss_fn:Callable, L
         # Forward pass
         variables = {'params': state.params, 'eligibility params':state.eligibility_params, 'spatial params':state.spatial_params}
         recurrent_carries, logits = state.apply_fn(variables, batch['input'])  
-
+        
         # Compute e-prop Updates
         # If task is classification, the eprop update function expects y to be already the assigned probability,
         # but model return logits. 
