@@ -206,7 +206,6 @@ def plot_pattern_generation_prediction(y:Array, targets:Array, ax=None):
 def plot_LSNN_weights(state, layer_names:List, save_path):
     """ Plot weights of the different layers.  """
   
-    
     # Create a figure and a set of subplots
     fig, axs = plt.subplots(1, 3, figsize=(12, 4))
     
@@ -214,14 +213,7 @@ def plot_LSNN_weights(state, layer_names:List, save_path):
                     state.params['ReadOut_0']['readout_weights']]
     
     for i, (weights, ax) in enumerate(zip(weights_list, axs)):
-        # Normalization commented out
-        # Normalize weights for better visualization
-        #weights_min = jnp.min(weights)
-        #weights_max = jnp.max(weights)
-        #weights_normalized = (weights - weights_min) / (weights_max - weights_min + 0.00001)
-        
-        # Convert to numpy array for plotting
-        # weights_normalized = jnp.array(weights_normalized)
+       
         
         # Plot the weights
         cax = ax.imshow(weights, cmap='viridis',interpolation='nearest', aspect='auto')
@@ -241,8 +233,79 @@ def plot_LSNN_weights(state, layer_names:List, save_path):
     fig.savefig(save_path)
     plt.close()
     
+def plot_weights_spatially_indexed(state, gridshape, save_path):
+    # Get weights
+    input_weights = state.params['ALIFCell_0']['input_weights']
+    recurrent_weights = state.params['ALIFCell_0']['recurrent_weights']
+    output_weights = state.params['ReadOut_0']['readout_weights']
+
+    # Get location of recurrent neurons in cell
+    rec_cell_loc = state.spatial_params["ALIFCell_0"]["cells_loc"]
+
+    # convert to 1D indexing location code 
+    rec_cell_loc_ind = jnp.lexsort((rec_cell_loc[:, 1], rec_cell_loc[:, 0])) # sort by row, then column 
+
+    # sort weights
+    sorted_input_weights = input_weights[:, rec_cell_loc_ind] # (n_in, n_rec)
+    sorted_recurrent_weights =  recurrent_weights[jnp.ix_(rec_cell_loc_ind, rec_cell_loc_ind)]# (n_rec, n_rec) sorts both rows and columns 
+    
+    
+    # Create a figure and a set of subplots
+    fig, axs = plt.subplots(2, 2, figsize=(10, 8))
+
+    # Plot input weights
+    cax1 = axs[0,0].imshow(sorted_input_weights, cmap='viridis',interpolation='nearest', aspect='auto') 
+    
+    # Add a color bar
+    fig.colorbar(cax1, ax=axs[0,0])
+    
+    # Set titles and labels
+    axs[0,0].set_title(f'Input weights')
+    axs[0,0].set_xlabel('Pre Neuron index')
+    axs[0,0].set_ylabel('Post Neuron index')
 
 
+    # Plot recurrent weights
+    cax2 = axs[0,1].imshow(sorted_recurrent_weights, cmap='viridis',interpolation='nearest', aspect='auto')     
+    
+    # Add a color bar
+    fig.colorbar(cax2, ax=axs[0,1])
+    
+    # Set titles and labels
+    axs[0,1].set_title(f'Recurrent weights')
+    axs[0,1].set_xlabel('Pre Neuron index')
+    axs[0,1].set_ylabel('Post Neuron index')
+
+
+    # plot output weights    
+    # Create a 2D grid 
+    grid = jnp.full(gridshape, jnp.nan)    
+    
+    # Plot first readout neuron weight
+    # Populate the grid with weights using the neuron positions
+    grid = grid.at[rec_cell_loc[:, 0], rec_cell_loc[:, 1]].set(output_weights[:,0])
+    cax3 = axs[1,0].imshow(grid, cmap='viridis',interpolation='nearest', aspect='auto')    
+    fig.colorbar(cax3, ax=axs[1,0])
+    axs[1,0].set_title(f'Readout 1 weights(Left/0)')
+    axs[1,0].set_xlabel('x position grid')
+    axs[1,0].set_ylabel('y position grid')
+    
+    # if exist, plot second readout
+    if jnp.shape(output_weights)[1] > 1:
+        grid = jnp.full(gridshape, jnp.nan)
+    
+        # Plot first readout neuron weight
+        # Populate the grid with weights using the neuron positions
+        grid = grid.at[rec_cell_loc[:, 0], rec_cell_loc[:, 1]].set(output_weights[:,1])
+        cax4 = axs[1,1].imshow(grid, cmap='viridis',interpolation='nearest', aspect='auto')    
+        fig.colorbar(cax4, ax=axs[1,1])
+        axs[1,1].set_title(f'Readout 2 weights(Right/1)')
+        axs[1,1].set_xlabel('x position grid')
+        axs[1,1].set_ylabel('y position grid')
+    
+    fig.tight_layout()
+    fig.savefig(save_path)
+    plt.close()
 
 def plot_gradients(grads, spatial_params, epoch, save_path):
     """

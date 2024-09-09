@@ -443,7 +443,7 @@ def train_and_evaluate(cfg) -> TrainState:
                        save_path=os.path.join(figures_directory, "weights"))
   
     
-    
+    plots.plot_weights_spatially_indexed(state, cfg.net_arch.gridshape,os.path.join(figures_directory, "spatially_weights"))
     #
     fig_train, axs_train = plt.subplots(2, 2, figsize=(12, 10))
 
