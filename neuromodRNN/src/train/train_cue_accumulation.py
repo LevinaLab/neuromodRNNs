@@ -108,7 +108,8 @@ class TrainStateEProp(TrainState):
   init_eligibility_carries: Dict[str, Array]
   init_error_grid: Array
   
-def create_train_state(rng:PRNGKey, learning_rate:float, model:LSSN, input_shape:Tuple[int,...])->train_state.TrainState:
+  
+def create_train_state(rng:PRNGKey, learning_rate:float, model:LSSN, input_shape:Tuple[int,...], batch_size:int, mini_batch_size:int)->train_state.TrainState:
   """Create initial training state."""
   key1, key2, key3 = random.split(rng, 3)
   params, eligibility_params, spatial_params = get_initial_params(key1, model, input_shape)
@@ -116,7 +117,9 @@ def create_train_state(rng:PRNGKey, learning_rate:float, model:LSSN, input_shape
   init_error_grid = get_init_error_grid(key3, model, input_shape)
 
   tx = optax.adam(learning_rate=learning_rate)
-
+  grad_accum_steps = int(batch_size/mini_batch_size)
+  if grad_accum_steps > 1:
+    tx = optax.MultiSteps(opt=tx, every_k_schedule=grad_accum_steps, use_grad_mean=False)
   state = TrainStateEProp.create(apply_fn=model.apply, params=params, tx=tx, 
                                   eligibility_params=eligibility_params,
                                   spatial_params = spatial_params,
@@ -220,7 +223,7 @@ def train_step(
     # For computing loss, we use logits instead of already computed softmax
     metrics = compute_metrics(labels=batch['label'][:,-LS_avail:,:], logits=y[:,-LS_avail:,:])    
     
-    return new_state, metrics
+    return new_state, metrics, grads
 
 def train_epoch(
     train_step_fn: Callable[..., Tuple[TrainState, Metrics]],
@@ -238,12 +241,13 @@ def train_epoch(
 
     """Train for a single epoch."""
     batch_metrics = []
+    accumulated_grads = jax.tree_map(lambda x: jnp.zeros_like(x), state.params)
     for batch_idx, batch in enumerate(train_batches):
-        state, metrics = train_step_fn(state=state, batch=batch, optimization_loss_fn=optimization_loss_fn,
+        state, metrics, grads = train_step_fn(state=state, batch=batch, optimization_loss_fn=optimization_loss_fn,
                                         LS_avail=LS_avail, local_connectivity=local_connectivity, f_target=f_target,
                                           c_reg=c_reg, learning_rule=learning_rule, task=task)
         batch_metrics.append(metrics)
-
+        accumulated_grads = jax.tree_map(lambda a, g: a + g, accumulated_grads, grads) # this is only for plotting, the update is accumulated already using Optax.MultiSteps
     # Compute the metrics for this epoch.
     batch_metrics = jax.device_get(batch_metrics)
     metrics = normalize_batch_metrics(batch_metrics)
@@ -256,7 +260,7 @@ def train_epoch(
         metrics.accuracy * 100,
     )
 
-    return state, metrics
+    return state, metrics, accumulated_grads
 
 def eval_step(
     state: TrainState, batch: Dict[str, Array], LS_avail:int) -> Metrics:   
@@ -319,7 +323,7 @@ def train_and_evaluate(
     rng = random.key(cfg.net_params.seed) # in model to config, consume the splits, not the key itself, so should be differetn
     
     model = model_from_config(cfg)
-    state = create_train_state(rng, cfg.train_params.lr, model, input_shape=(cfg.train_params.train_sub_batch_size, n_in))  
+    state = create_train_state(rng, cfg.train_params.lr, model, input_shape=(cfg.train_params.train_mini_batch_size, n_in), batch_size=cfg.train_params.train_batch_size, mini_batch_size=cfg.train_params.train_mini_batch_size)  
 
     # For plotting
     loss_training = []
@@ -351,7 +355,7 @@ def train_and_evaluate(
 # Prepare datasets.
     # We want the test set to be always the same. So, instead of keeping generate the same data by fixing seed, generate data once and store it as a list of bathes
     eval_batch=  list(tasks.cue_accumulation_task(n_batches= cfg.train_params.test_batch_size, 
-                                                             batch_size=cfg.train_params.test_sub_batch_size, 
+                                                             batch_size=cfg.train_params.test_mini_batch_size, 
                                                              seed = cfg.task.seed, n_cues=cfg.task.n_cues, min_delay=cfg.task.min_delay,
                                                              max_delay =cfg.task.max_delay, n_population= cfg.net_arch.n_neurons_channel, 
                                                              f_input =cfg.task.f_input, f_background=cfg.task.f_background,
@@ -362,7 +366,7 @@ def train_and_evaluate(
     logger.info('Starting training...')
     for epoch in range(1, cfg.train_params.iterations+1): # change size of loop
         train_batch=  tasks.cue_accumulation_task(n_batches= cfg.train_params.train_batch_size, 
-                                                             batch_size=cfg.train_params.test_sub_batch_size, 
+                                                             batch_size=cfg.train_params.test_mini_batch_size, 
                                                              seed = cfg.task.seed, n_cues=cfg.task.n_cues, min_delay=cfg.task.min_delay,
                                                              max_delay =cfg.task.max_delay, n_population= cfg.net_arch.n_neurons_channel, 
                                                              f_input =cfg.task.f_input, f_background=cfg.task.f_background,
@@ -371,7 +375,7 @@ def train_and_evaluate(
         
         # Train for one epoch. 
         logger.info("\t Starting Epoch:{} ".format(epoch))     
-        state, train_metrics = train_epoch(train_step_fn=train_step_fn, state=state, train_batches=train_batch, epoch=epoch, optimization_loss_fn=optimization_loss_fn, LS_avail=cfg.task.LS_avail,
+        state, train_metrics, grads = train_epoch(train_step_fn=train_step_fn, state=state, train_batches=train_batch, epoch=epoch, optimization_loss_fn=optimization_loss_fn, LS_avail=cfg.task.LS_avail,
                                             local_connectivity=model.local_connectivity, f_target=cfg.train_params.f_target, c_reg=cfg.train_params.c_reg,
                                             learning_rule=cfg.train_params.learning_rule, task=cfg.task.task_type)
        
@@ -391,7 +395,7 @@ def train_and_evaluate(
               accuracy_test = []
               for i in range(3):
                 test_batch = tasks.cue_accumulation_task(n_batches= cfg.train_params.test_batch_size, 
-                                                             batch_size=cfg.train_params.test_sub_batch_size, 
+                                                             batch_size=cfg.train_params.test_mini_batch_size, 
                                                              seed = cfg.task.seed, n_cues=cfg.task.n_cues, min_delay=cfg.task.min_delay,
                                                              max_delay =cfg.task.max_delay, n_population= cfg.net_arch.n_neurons_channel, 
                                                              f_input =cfg.task.f_input, f_background=cfg.task.f_background,

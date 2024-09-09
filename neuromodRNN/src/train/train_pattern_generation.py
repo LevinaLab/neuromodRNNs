@@ -109,7 +109,7 @@ class TrainStateEProp(TrainState):
   init_eligibility_carries: Dict[str, Array]
   init_error_grid: Array
   
-def create_train_state(rng:PRNGKey, learning_rate:float, model:LSSN, input_shape:Tuple[int,...])->train_state.TrainState:
+def create_train_state(rng:PRNGKey, learning_rate:float, model:LSSN, input_shape:Tuple[int,...], batch_size:int, mini_batch_size:int)->train_state.TrainState:
   """Create initial training state."""
   key1, key2, key3 = random.split(rng, 3)
   params, eligibility_params, spatial_params = get_initial_params(key1, model, input_shape)
@@ -117,7 +117,9 @@ def create_train_state(rng:PRNGKey, learning_rate:float, model:LSSN, input_shape
   init_error_grid = get_init_error_grid(key3, model, input_shape)
 
   tx = optax.adam(learning_rate=learning_rate)
-
+  grad_accum_steps = int(batch_size/mini_batch_size)
+  if grad_accum_steps > 1:
+    tx = optax.MultiSteps(opt=tx, every_k_schedule=grad_accum_steps, use_grad_mean=False)
   state = TrainStateEProp.create(apply_fn=model.apply, params=params, tx=tx, 
                                   eligibility_params=eligibility_params,
                                   spatial_params = spatial_params,
@@ -126,13 +128,12 @@ def create_train_state(rng:PRNGKey, learning_rate:float, model:LSSN, input_shape
                                   )
   return state
 
-
 def optimization_loss(logits, labels, z, c_reg, f_target, trial_length):
     
   if labels.ndim==2: # calling labels what normally people call targets in regression tasks
       labels = jnp.expand_dims(labels, axis=-1) # this is necessary because target labels might have only (n_batch, n_t) and predictions (n_batch, n_t, n_out=1)
 
-  task_loss = jnp.sum(losses.squared_error(targets=labels, predictions=logits)) # sum over batches and time
+  task_loss = jnp.sum(losses.squared_error(targets=labels, predictions=logits)) # sum over batches and time --> usually, take average, but biologically is unplausible that updates are averaged across batches, so sum
     
   av_f_rate = learning_utils.compute_firing_rate(z=z, trial_length=trial_length)
   f_target = f_target / 1000 # f_target is given in Hz, bu av_f_rate is spikes/ms --> Bellec 2020 used the f_reg also in spikes/ms
@@ -232,12 +233,13 @@ def train_epoch(
 
     """Train for a single epoch."""
     batch_metrics = []
+    accumulated_grads = jax.tree_map(lambda x: jnp.zeros_like(x), state.params)
     for batch_idx, batch in enumerate(train_batches):
         state, metrics = train_step_fn(state=state, batch=batch, optimization_loss_fn=optimization_loss_fn,
                                        LS_avail=LS_avail, local_connectivity=local_connectivity,
                                        f_target=f_target, c_reg=c_reg, learning_rule=learning_rule, task=task)
         batch_metrics.append(metrics)
-
+        accumulated_grads = jax.tree_map(lambda a, g: a + g, accumulated_grads, grads) # this is only for plotting, the update is accumulated already using Optax.MultiSteps
     # Compute the metrics for this epoch.
     batch_metrics = jax.device_get(batch_metrics)
     metrics = normalize_batch_metrics(batch_metrics)
@@ -309,7 +311,7 @@ def train_and_evaluate(
     rng = random.key(cfg.net_params.seed) # in model to config, consume the splits, not the key itself, so should be differetn
     
     model = model_from_config(cfg)
-    state = create_train_state(rng, cfg.train_params.lr, model, input_shape=(cfg.train_params.train_sub_batch_size, n_in))  
+    state = create_train_state(rng, cfg.train_params.lr, model, input_shape=(cfg.train_params.train_mini_batch_size, n_in), batch_size=cfg.train_params.train_batch_size, mini_batch_size=cfg.train_params.train_mini_batch_size)  
     
     # For plotting
     loss_training = []
@@ -342,7 +344,7 @@ def train_and_evaluate(
 
     # We want the test set to be always the same. So, instead of keeping generate the same data by fixing seed, generate data once and store it as a list of bathes
     eval_batch=  list(tasks.pattern_generation(n_batches= cfg.train_params.test_batch_size, 
-                                                             batch_size=cfg.train_params.test_sub_batch_size, 
+                                                             batch_size=cfg.train_params.test_mini_batch_size, 
                                                              seed = cfg.task.seed, frequencies=cfg.task.frequencies,
                                                              n_population= cfg.net_arch.n_neurons_channel,
                                                              weights = cfg.task.weights,
@@ -353,7 +355,7 @@ def train_and_evaluate(
     logger.info('Starting training...')
     for epoch in range(1, cfg.train_params.iterations+1): # change size of loop
         train_batch=  tasks.pattern_generation(n_batches= cfg.train_params.train_batch_size, 
-                                                             batch_size=cfg.train_params.test_sub_batch_size, 
+                                                             batch_size=cfg.train_params.test_mini_batch_size, 
                                                              seed = cfg.task.seed, frequencies=cfg.task.frequencies,
                                                              n_population= cfg.net_arch.n_neurons_channel,
                                                              weights = cfg.task.weights,
@@ -383,7 +385,7 @@ def train_and_evaluate(
               normalized_loss = []
               for i in range(3):
                 test_batch = tasks.pattern_generation(n_batches= cfg.train_params.test_batch_size, 
-                                                             batch_size=cfg.train_params.test_sub_batch_size, 
+                                                             batch_size=cfg.train_params.test_mini_batch_size, 
                                                              seed = cfg.task.seed, frequencies=cfg.task.frequencies,
                                                              n_population= cfg.net_arch.n_neurons_channel,
                                                              weights = cfg.task.weights,

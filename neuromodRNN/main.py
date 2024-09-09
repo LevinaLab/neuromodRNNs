@@ -66,9 +66,9 @@ class NetworkParams:
 class TrainParams:
     lr: float = 0.001 # learning rate
     train_batch_size: int = 64 # how many samples before weight update
-    train_sub_batch_size: int = 8 # Due to memory limitations, load subsets of the batch at each time
+    train_mini_batch_size: int = 8 # Due to memory limitations, load subsets of the batch at each time
     test_batch_size: int = 512
-    test_sub_batch_size: int = 8 # Due to memory limitations, load subsets of the batch at each time 
+    test_mini_batch_size: int = 8 # Due to memory limitations, load subsets of the batch at each time 
     iterations: int = 2000  # how many time steps
     stop_criteria: float = 0.95
     f_target:float = 10.
