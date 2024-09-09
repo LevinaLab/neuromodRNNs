@@ -86,7 +86,7 @@ class ALIFCell(nn.recurrent.RNNCellBase):
     n_LIF: int = 3 # Number of standard LIF neurons.
     local_connectivity: bool = True # If or not the recurrent layer presents local connection pattern.
     sigma: float = 0.012 # controls probability of connection in the local connective mode according to distance between neurons.       
-    gridshape: Tuple[int, int] = (10, 10) # (w,h) width (n_cols) and height(n_rows) of 2D grid used for embedding of recurrent layer.
+    gridshape: Tuple[int, int] = (10, 10) # (h,w) height(n_rows), width (n_cols) of 2D grid used for embedding of recurrent layer.
     n_neuromodulators: int =1 # number of neuromodulators.
     sparse_connectivity: bool = True # if recurrent network is sparsely connected to input
     

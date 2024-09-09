@@ -136,7 +136,7 @@ def initialize_connectivity_mask(local_connectivity:bool, gridshape:Tuple[int, i
         # if local_connectivity True, build mask according to spatial embedding        
         if local_connectivity:
             
-            w, h = gridshape # unpack gridshape, where w is the width (col number) of grid and h is height
+            h, w = gridshape # unpack gridshape, where w is the width (col number) of grid and h is height
             
             # create grid
             grid = spatial_embedings.twod_grid(w, h) # look spatial embedding for information
@@ -257,7 +257,7 @@ def initialize_neurons_position(gridshape:Tuple[int, int], key: PRNGKey, n_rec: 
     """  
     
     def initializer(key=key, shape=(n_rec, n_rec), dtype=jnp.float32):
-        w, h = gridshape
+        h, w = gridshape
         cells_indices = spatial_embedings.cell_to_twod_grid(w=w, h=h, n_cells=n_rec, key=key)
         return cells_indices
     
