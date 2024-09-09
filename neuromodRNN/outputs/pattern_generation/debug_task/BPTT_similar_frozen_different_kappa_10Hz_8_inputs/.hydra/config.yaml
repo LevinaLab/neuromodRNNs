@@ -1,5 +1,5 @@
 net_arch:
-  n_neurons_channel: 400
+  n_neurons_channel: 100
   n_ALIF: 0
   n_LIF: 100
   n_out: 1
@@ -33,12 +33,12 @@ net_params:
   readout_sparsity: 0.1
 train_params:
   lr: 0.001
-  train_batch_size: 2
-  train_mini_batch_size: 1
-  test_batch_size: 2
-  test_mini_batch_size: 1
+  train_batch_size: 8
+  train_mini_batch_size: 8
+  test_batch_size: 8
+  test_mini_batch_size: 8
   iterations: 2000
-  stop_criteria: 0.1
+  stop_criteria: 0.001
   f_target: 10.0
   c_reg: 100.0
   learning_rule: BPTT
@@ -60,7 +60,7 @@ task:
   - 0.2
   - 0.2
   f_input: 10.0
-  trial_dur: 2000
+  trial_dur: 1000
 save_paths:
   experiment_name: debug_task
   condition: BPTT_similar_frozen_different_kappa_10Hz_8_inputs

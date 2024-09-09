@@ -147,7 +147,7 @@ class Metrics(struct.PyTreeNode):
   """Computed metrics."""
 
   loss: float
-  accuracy: Optional[float] = None
+  accuracy: Optional[float] = None 
   count: Optional[int] = None
 
 def compute_metrics(*, labels: Array, logits: Array) -> Metrics:
@@ -162,12 +162,12 @@ def compute_metrics(*, labels: Array, logits: Array) -> Metrics:
   inference = jnp.argmax(jnp.sum(logits, axis=1), axis=-1) #  jnp.argmax(jnp.sum(logits, axis=1), axis=-1) # sum the the output overtime, generate cummulative evidence. Select the one with higher evidence. (n_batches,)
   label = jnp.argmax(labels[:,0,:], axis=-1) # labels are same for every time step in the task
   binary_accuracy = jnp.equal(inference, label) 
- 
+  
   
   # metrics are summed over batches, counts are stored to normalize it later. This is important if paralellizing through multiple devices
   return Metrics(
       loss=jnp.sum(loss),
-      accuracy= jnp.sum(binary_accuracy),
+      accuracy= jnp.sum(binary_accuracy),      
       count = logits.shape[0] # number of batches basically
        )
 
@@ -175,12 +175,11 @@ def normalize_batch_metrics(batch_metrics: Sequence[Metrics]) -> Metrics:
   """Consolidates and normalizes a list of per-batch metrics dicts."""
   # Here we sum the metrics that were already summed per batch.
   total_loss = np.sum([metrics.loss for metrics in batch_metrics])
-  total_accuracy = np.sum([metrics.accuracy for metrics in batch_metrics])
+  total_accuracy = np.sum([metrics.accuracy for metrics in batch_metrics])  
   total = np.sum([metrics.count for metrics in batch_metrics])
   # Divide each metric by the total number of items in the data set.
   return Metrics(
-      loss=total_loss.item() / total, accuracy=total_accuracy.item() / total
-  )
+      loss=total_loss.item() / total, accuracy=total_accuracy.item() / total)  
   
 
 
@@ -200,7 +199,7 @@ def train_step(
     """Train for a single step."""                                 
        
     #  Passing LS_avail will guarantee that it is only available during the last LS_avail    
-    y, grads = learning_rules.compute_grads(batch=batch, state=state, optimization_loss_fn=optimization_loss_fn, 
+    y,grads = learning_rules.compute_grads(batch=batch, state=state, optimization_loss_fn=optimization_loss_fn, 
                                          LS_avail=LS_avail, local_connectivity=local_connectivity, f_target=f_target, 
                                          c_reg=c_reg, learning_rule=learning_rule,
                                          task=task)
@@ -208,8 +207,9 @@ def train_step(
     new_state = state.apply_gradients(grads=grads)
 
     # For computing loss, we use logits instead of already computed softmax
-    metrics = compute_metrics(labels=batch['label'][:,-LS_avail:,:], logits=y[:,-LS_avail:,:])    
-    return new_state, metrics
+    metrics = compute_metrics(labels=batch['label'][:,-LS_avail:,:], logits=y[:,-LS_avail:,:]) 
+       
+    return new_state, metrics, grads # return grads only for plotting reasons
 
 def train_epoch(
     train_step_fn: Callable[..., Tuple[TrainState, Metrics]],
@@ -329,7 +329,10 @@ def train_and_evaluate(
   # options = orbax.checkpoint.CheckpointManagerOptions(max_to_keep=5, create=True)
   # checkpoint_manager = orbax.checkpoint.CheckpointManager('/tmp/flax_ckpt/orbax/managed', orbax_checkpointer, options)
   # Loop Through Curriculum
-  
+    
+    # output directory
+    output_dir = hydra.core.hydra_config.HydraConfig.get().runtime.output_dir
+    
     logger = logging.getLogger(__name__)
     
 
@@ -356,9 +359,9 @@ def train_and_evaluate(
         
         # Train for one epoch. 
         logger.info("\t Starting Epoch:{} ".format(epoch))     
-        state, train_metrics = train_epoch(train_step_fn=train_step_fn, state=state, train_batches=train_batch, epoch=epoch, optimization_loss_fn=closure, LS_avail=cfg.task.LS_avail,
-                                            local_connectivity=model.local_connectivity, f_target=cfg.train_params.f_target, c_reg=cfg.train_params.c_reg,
-                                            learning_rule=cfg.train_params.learning_rule, task=cfg.task.task_type)
+        state, train_metrics, accumulated_grads = train_epoch(train_step_fn=train_step_fn, state=state, train_batches=train_batch, epoch=epoch, optimization_loss_fn=closure, LS_avail=cfg.task.LS_avail,
+                                                              local_connectivity=model.local_connectivity, f_target=cfg.train_params.f_target, c_reg=cfg.train_params.c_reg,
+                                                              learning_rule=cfg.train_params.learning_rule, task=cfg.task.task_type)
        
        
         
@@ -389,11 +392,16 @@ def train_and_evaluate(
                 accuracy_test.append(test_metrics.accuracy)
               if len(accuracy_test) == 3:
                 logger.info(f'Met early stopping criteria, breaking at epoch {epoch}')
+        
                 break
+        # Plot hist of grads.        
+        if (epoch - 1) % 100 == 0: 
+          grad_fig_directory = os.path.join(output_dir, 'grad_figs')
+          os.makedirs(grad_fig_directory, exist_ok=True)
+          grad_save_path = os.path.join(grad_fig_directory, str(epoch))
+          plots.plot_gradients(accumulated_grads, state.spatial_params, epoch, grad_save_path)
 
-
-
-    output_dir = hydra.core.hydra_config.HydraConfig.get().runtime.output_dir
+    
 
     train_info_directory = os.path.join(output_dir, 'train_info')
     os.makedirs(train_info_directory, exist_ok=True)

@@ -3,7 +3,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
-
+import seaborn as sns
+import jax.numpy as jnp
 # Just for typing the type of inputs of functions
 from typing import (
  List  
@@ -240,3 +241,77 @@ def plot_LSNN_weights(state, layer_names:List, save_path):
     fig.savefig(save_path)
     plt.close()
     
+
+
+
+def plot_gradients(grads, spatial_params, epoch, save_path):
+    """
+    Plot histogram of grads for the different layers, already excluding gradients masked to 0 due to sparse or local connectivity
+    figured inspired on https://hassaanbinaslam.github.io/myblog/posts/2022-10-23-pytorch-vanishing-gradients-deep-neural-networks.html
+    """
+    fig, axs= plt.subplots(1, 3, figsize=(10.5,3))
+    
+    #input layer grads
+    input_grads_ind = jnp.where(spatial_params['ALIFCell_0']['sparse_input'] == 1)
+    sns.histplot(data=grads['ALIFCell_0']['input_weights'][input_grads_ind], bins=30, ax=axs[0], kde=True)
+    axs[0].set_title('Input Weights')
+    axs[0].set_xlabel("Grad magnitude", fontsize=11)
+    # Count the number of NaNs in input grads
+    input_nan_count = jnp.sum(jnp.isnan(grads['ALIFCell_0']['input_weights'][input_grads_ind]))
+    # Count the number of infs in input grads
+    input_inf_count = jnp.sum(jnp.isinf(grads['ALIFCell_0']['input_weights'][input_grads_ind]))
+    axs[0].text(
+    0.95,  # x-position (relative to plot, 0 is left, 1 is right)
+    0.95,  # y-position (relative to plot, 0 is bottom, 1 is top)
+    f'NaN count: {input_nan_count}\nInf count: {input_inf_count}',
+    horizontalalignment='right',
+    verticalalignment='top',
+    transform=axs[0].transAxes,  # Position relative to the specific axis (axs[0])
+    bbox=dict(facecolor='white', alpha=0.5)  # Optional: adds a semi-transparent background box
+    )
+    
+    #recurrent layer grads
+    recurrent_grads_ind = jnp.where(spatial_params['ALIFCell_0']['M'] == 1)
+    sns.histplot(data=grads['ALIFCell_0']['recurrent_weights'][recurrent_grads_ind], bins=30, ax=axs[1], kde=True)
+    axs[1].set_title('Recurrent Weights')
+    axs[1].set_xlabel("Grad magnitude", fontsize=11)
+    # Count the number of NaNs in recurrent grads
+    recurrent_nan_count = jnp.sum(jnp.isnan(grads['ALIFCell_0']['recurrent_weights'][recurrent_grads_ind]))
+    # Count the number of infs in recurrent grads
+    recurrent_inf_count = jnp.sum(jnp.isinf(grads['ALIFCell_0']['recurrent_weights'][recurrent_grads_ind]))
+    axs[1].text(
+    0.95,  # x-position (
+    0.95,  # y-position 
+    f'NaN count: {recurrent_nan_count}\nInf count: {recurrent_inf_count}',
+    horizontalalignment='right',
+    verticalalignment='top',
+    transform=axs[1].transAxes,  # Position relative to the specific axis (axs[0])
+    bbox=dict(facecolor='white', alpha=0.5)  
+    )
+
+        
+    # Output layer grads
+    output_grads_ind = jnp.where(spatial_params['ReadOut_0']['sparse_readout'] == 1)
+    sns.histplot(data=grads['ReadOut_0']['readout_weights'][output_grads_ind] , bins=10, ax=axs[2], kde=True)
+    axs[2].set_title('Output Weights')
+    axs[2].set_xlabel("Grad magnitude", fontsize=11)
+        # Count the number of NaNs in output grads
+    output_nan_count = jnp.sum(jnp.isnan(grads['ReadOut_0']['readout_weights'][output_grads_ind] ))
+    # Count the number of infs in input grads
+    output_inf_count = jnp.sum(jnp.isinf(grads['ReadOut_0']['readout_weights'][output_grads_ind] ))
+    axs[2].text(
+    0.95,  # x-position (
+    0.95,  # y-position 
+    f'NaN count: {output_nan_count}\nInf count: {output_inf_count}',
+    horizontalalignment='right',
+    verticalalignment='top',
+    transform=axs[2].transAxes,  # Position relative to the specific axis (axs[0])
+    bbox=dict(facecolor='white', alpha=0.5)  
+    )
+
+
+    fig.suptitle(f"Epoch: {epoch}", fontsize=16)
+    # Adjust layout to prevent overlap
+    fig.tight_layout()
+    fig.savefig(save_path)
+    plt.close()

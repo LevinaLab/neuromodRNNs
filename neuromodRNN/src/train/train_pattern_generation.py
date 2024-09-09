@@ -215,7 +215,7 @@ def train_step(
 
     # For computing loss, we use logits instead of already computed softmax
     metrics = compute_metrics(targets=batch['label'][:,-LS_avail:], predictions=y[:,-LS_avail:,:])    
-    return new_state, metrics
+    return new_state, metrics, grads # return grads only or plotting reasons
 
 def train_epoch(
     train_step_fn: Callable[..., Tuple[TrainState, Metrics]],
@@ -235,7 +235,7 @@ def train_epoch(
     batch_metrics = []
     accumulated_grads = jax.tree_map(lambda x: jnp.zeros_like(x), state.params)
     for batch_idx, batch in enumerate(train_batches):
-        state, metrics = train_step_fn(state=state, batch=batch, optimization_loss_fn=optimization_loss_fn,
+        state, metrics, grads = train_step_fn(state=state, batch=batch, optimization_loss_fn=optimization_loss_fn,
                                        LS_avail=LS_avail, local_connectivity=local_connectivity,
                                        f_target=f_target, c_reg=c_reg, learning_rule=learning_rule, task=task)
         batch_metrics.append(metrics)
@@ -252,7 +252,7 @@ def train_epoch(
         metrics.normalized_loss,
     )
 
-    return state, metrics
+    return state, metrics, accumulated_grads
 
 def eval_step(
     state: TrainState, batch: Dict[str, Array], LS_avail:int) -> Metrics:   
@@ -291,9 +291,7 @@ def evaluate_model(
 
 
 
-def train_and_evaluate(
-  cfg
-) -> TrainState:
+def train_and_evaluate(cfg) -> TrainState:
     """Execute model training and evaluation loop.
 
     Args:
@@ -327,20 +325,23 @@ def train_and_evaluate(
     # this is a trick to pass a Callable as argument of jitted function
     optimization_loss_fn = optimization_loss
     closure = jax.tree_util.Partial(optimization_loss_fn) 
-  # Prepare Model Check pointer
+    # Prepare Model Check pointer
 
-  # ckpt = {'model': state}
-  # orbax_checkpointer = orbax.checkpoint.PyTreeCheckpointer()
-  # save_args = orbax_utils.save_args_from_target(ckpt)
-  # orbax_checkpointer.save('/tmp/flax_ckpt/orbax/single_save', ckpt, save_args=save_args)
-  # options = orbax.checkpoint.CheckpointManagerOptions(max_to_keep=5, create=True)
-  # checkpoint_manager = orbax.checkpoint.CheckpointManager('/tmp/flax_ckpt/orbax/managed', orbax_checkpointer, options)
-  # Loop Through Curriculum
-  
+    # ckpt = {'model': state}
+    # orbax_checkpointer = orbax.checkpoint.PyTreeCheckpointer()
+    # save_args = orbax_utils.save_args_from_target(ckpt)
+    # orbax_checkpointer.save('/tmp/flax_ckpt/orbax/single_save', ckpt, save_args=save_args)
+    # options = orbax.checkpoint.CheckpointManagerOptions(max_to_keep=5, create=True)
+    # checkpoint_manager = orbax.checkpoint.CheckpointManager('/tmp/flax_ckpt/orbax/managed', orbax_checkpointer, options)
+    # Loop Through Curriculum
+
+    # output directory
+    output_dir = hydra.core.hydra_config.HydraConfig.get().runtime.output_dir
+    
     logger = logging.getLogger(__name__)
     
     
-# Prepare datasets.
+    # Prepare datasets.
 
     # We want the test set to be always the same. So, instead of keeping generate the same data by fixing seed, generate data once and store it as a list of bathes
     eval_batch=  list(tasks.pattern_generation(n_batches= cfg.train_params.test_batch_size, 
@@ -351,8 +352,13 @@ def train_and_evaluate(
                                                              f_input =cfg.task.f_input, trial_dur=cfg.task.trial_dur
                                                              ))
     
-# Main training loop.
+    
+    
+    
+    # Main training loop.
     logger.info('Starting training...')
+    
+    
     for epoch in range(1, cfg.train_params.iterations+1): # change size of loop
         train_batch=  tasks.pattern_generation(n_batches= cfg.train_params.train_batch_size, 
                                                              batch_size=cfg.train_params.test_mini_batch_size, 
@@ -363,9 +369,9 @@ def train_and_evaluate(
         
         # Train for one epoch. 
         logger.info("\t Starting Epoch:{} ".format(epoch))     
-        state, train_metrics = train_epoch(train_step_fn=train_step_fn, state=state, train_batches=train_batch, epoch=epoch, optimization_loss_fn=closure, LS_avail=cfg.task.LS_avail,
-                                            local_connectivity=model.local_connectivity, f_target=cfg.train_params.f_target, c_reg=cfg.train_params.c_reg,
-                                            learning_rule=cfg.train_params.learning_rule, task=cfg.task.task_type)
+        state, train_metrics, accumulated_grads = train_epoch(train_step_fn=train_step_fn, state=state, train_batches=train_batch, epoch=epoch, optimization_loss_fn=closure, LS_avail=cfg.task.LS_avail,
+                                                             local_connectivity=model.local_connectivity, f_target=cfg.train_params.f_target, c_reg=cfg.train_params.c_reg,
+                                                             learning_rule=cfg.train_params.learning_rule, task=cfg.task.task_type)
         
        
         
@@ -401,7 +407,17 @@ def train_and_evaluate(
 
 
 
-    output_dir = hydra.core.hydra_config.HydraConfig.get().runtime.output_dir
+         
+        # Plot hist of grads.        
+        if (epoch - 1) % 100 == 0: 
+          grad_fig_directory = os.path.join(output_dir, 'grad_figs')
+          os.makedirs(grad_fig_directory, exist_ok=True)
+          grad_save_path = os.path.join(grad_fig_directory, str(epoch))
+          plots.plot_gradients(accumulated_grads, state.spatial_params, epoch, grad_save_path)
+    
+    
+    
+    
 
     train_info_directory = os.path.join(output_dir, 'train_info')
     os.makedirs(train_info_directory, exist_ok=True)

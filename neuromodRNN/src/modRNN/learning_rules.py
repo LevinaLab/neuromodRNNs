@@ -310,10 +310,11 @@ def autodiff_grads(batch,state, optimization_loss_fn,LS_avail, c_reg, f_target):
         loss = optimization_loss_fn(logits=y[:, -LS_avail:, :], labels=labels[:,-LS_avail:, :], z=z,
                                      c_reg=c_reg, f_target=f_target, trial_length=trial_length
         ) # optimization loss will be both task and regultarization, so need to make sure everything is passed
-        return loss, y
+        return loss, (y,z)
     grad_fn = value_and_grad(loss_fn, has_aux=True)
-    (loss, y), grads = grad_fn(state.params)
-    return y, grads
+    (loss, aux_values), grads = grad_fn(state.params)
+    y, z = aux_values
+    return y, grads  
 
 
 
@@ -427,7 +428,7 @@ def compute_grads(batch:Dict[str, Array], state,optimization_loss_fn:Callable, L
         
         # Guarantee readout sparsity is kept        
         grads['ReadOut_0']['readout_weights'] *= state.spatial_params['ReadOut_0']['sparse_readout']
-        return y, grads
+        return y, grads  # returning z only for purpose of plotting average firing rate
     
    
     elif (learning_rule == "e_prop_hardcoded") | (learning_rule == "diffusion"):
@@ -519,7 +520,7 @@ def compute_grads(batch:Dict[str, Array], state,optimization_loss_fn:Callable, L
                                                             LS_avail=LS_avail)
 
         grads['ReadOut_0']['readout_weights'] *= state.spatial_params['ReadOut_0']['sparse_readout']        
-        return logits, grads   
+        return logits, grads # returning z only for purpose of plotting average firing rate
     
     else:
         raise NotImplementedError("The requested method {} hasn't being implemented. Please provide one of the valid learning rules: 'e_prop_hardcoded', 'e_prop_autodiff', 'diffusion' or 'BPTT'".format(learning_rule))
