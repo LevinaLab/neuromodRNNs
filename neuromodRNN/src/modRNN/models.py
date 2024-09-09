@@ -88,6 +88,7 @@ class ALIFCell(nn.recurrent.RNNCellBase):
     sigma: float = 0.012 # controls probability of connection in the local connective mode according to distance between neurons.       
     gridshape: Tuple[int, int] = (10, 10) # (w,h) width (n_cols) and height(n_rows) of 2D grid used for embedding of recurrent layer.
     n_neuromodulators: int =1 # number of neuromodulators.
+    sparse_connectivity: bool = True # if recurrent network is sparsely connected to input
     
     # net_params
     thr: float = 0.6 # Base firing threshold for neurons
@@ -99,6 +100,7 @@ class ALIFCell(nn.recurrent.RNNCellBase):
     k: float = 0 # decay rate of diffusion.
     radius:int = 1 # radius of difussion kernel,should probably be kept as one.
     learning_rule:str = "e_prop_hardcoded" # indicate which learning rule is being used. Important to block gradients for e_prop_autodiff. For hardcoded versions doesnt affect.
+    input_sparsity: float = 0.1 # between 0 and 1, sparsity of input connections (only used if sparse_connectivity is True)
 
 
     # Initializers    
@@ -115,7 +117,7 @@ class ALIFCell(nn.recurrent.RNNCellBase):
     local_connectivity_seed: int = 0 # seed for initialize RNG used for local_connectivity mask.
     cell_loc_seed: int = 3 # seed for initialize RNG used for location of cells in the 2D embedding (grid).
     diff_kernel_seed: int = 0 # # seed for initialize RGN for diffusion kernel (not used in the function).
-    
+    input_sparsity_seed: int = 3342 # Key for sparsity mask initialization
     # others
     dt: float = 1 # Time step size (ms).
     param_dtype: Dtype = jnp.float32  # dtype of parameters.
@@ -165,13 +167,14 @@ class ALIFCell(nn.recurrent.RNNCellBase):
         # Initialize betas as a fixed variable
         betas = self.variable('eligibility params', 'betas', calculate_betas) # dim: (n_rec,)
         
-        # Initialize connectivity mask. So far, only the 2D embeding provided is spatial_embedings.py can be used for this. In case local_connectivity is False, returns ones matrix (no mask)        
+        # Initialize position of recurrent cells in 2-D grid
         cells_loc = self.variable('spatial params', 'cells_loc', 
                                 inits.initialize_neurons_position(gridshape=self.gridshape, 
                                                                     key=random.key(self.cell_loc_seed),
                                                                     n_rec=self.n_LIF +self.n_ALIF,
                                                                     dtype= self.param_dtype))
-
+        
+        # Initialize recurrent connectivity mask --> local connection or 1s, depending on local_connectivity
         M = self.variable('spatial params', 'M',
                         inits.initialize_connectivity_mask(local_connectivity=self.local_connectivity,
                                                             gridshape=self.gridshape,
@@ -181,6 +184,12 @@ class ALIFCell(nn.recurrent.RNNCellBase):
                                                             sigma = self.sigma, 
                                                             dtype = self.param_dtype)
         )
+
+        # Initialize input connectivity mask --> mask with desired sparsity, or full of 1s, depending on sparse_connectivity
+        input_sparsity_mask = self.variable('spatial params', 'sparse_input',
+                        inits.initialize_sparsity_mask(sparse_connectivity=self.sparse_connectivity, shape=(jnp.shape(x)[-1], self.n_LIF + self.n_ALIF),
+                                                       key=random.key(self.input_sparsity_seed),sparsity=self.input_sparsity, dtype = self.param_dtype))                                   
+         
         
         # Initialize diffusion kernel (not used in forward pass)
         diff_K = self.variable('spatial params', 'diff_K', inits.k_initializer(k=self.k, shape=(self.n_neuromodulators, 1, 2*self.radius+1, 2*self.radius+1)))
@@ -190,7 +199,8 @@ class ALIFCell(nn.recurrent.RNNCellBase):
         'input_weights',
         inits.generalized_initializer(self.weights_init,
                                         gain=self.gain[0],
-                                        avoid_self_recurrence=False),
+                                        avoid_self_recurrence=False,
+                                        mask_connectivity=input_sparsity_mask.value),
                                         (jnp.shape(x)[-1], self.n_LIF + self.n_ALIF), # need to use self.n_LIF + self.n_ALIF instead of n_rec.value, because n_rec.value becomes traceable array, what does not work for jit 
                                         self.param_dtype,
         ) # dim: (n_in, n_rec)
@@ -469,7 +479,7 @@ class LSSN(nn.Module):
     sigma: float = 0.012 # controls probability of connection in the local connective mode according to distance between neurons.  
     gridshape: Tuple[int, int] = (10, 10) # (w,h) width (n_cols) and height(n_rows) of 2D grid used for embedding of recurrent layer.
     n_neuromodulators: int =1 # number of neuromodulators.
-    sparse_readout_connectivity: bool = False # if recurrent network is sparsely connected to readout
+    sparse_connectivity: bool = False # if recurrent network is sparsely connected to readout
     
     # ALIF params
     thr: float = 0.6 # Base firing threshold for neurons.
@@ -481,6 +491,8 @@ class LSSN(nn.Module):
     k: float = 0 # decay rate of diffusion.
     radius:int = 1 # radius of difussion kernel,should probably be kept as one.
     learning_rule:str = "e_prop_hardcoded" # indicate which learning rule is being used. Important to block gradients for e_prop_autodiff. For hardcoded versions doesnt affect.  
+    input_sparsity: float = 0.1 # between 0 and 1, sparsity of input connections (only used if sparse_connectivity is True)
+
 
     # Readout params
     tau_out: float = 20  # Time constant for the output layer (ms).
@@ -512,7 +524,8 @@ class LSSN(nn.Module):
     cell_loc_seed: int = 3 # seed for initialize RNG used for location of cells in the 2D embedding (grid).
     diff_kernel_seed: int = 0 # seed for initialize RNG for diffusion kernel (not used in the function).
     FeedBack_seed: int = 42 # seed for initialize RNG for Feedback weights.
-    readout_sparsity_seed: int = 3312 # Key for sparsity mask initialization
+    input_sparsity_seed: int = 3342 # Key for input sparsity mask initialization
+    readout_sparsity_seed: int = 3312 # Key for readout sparsity mask initialization
     # Others
     dt: float = 1      
     loss: Callable = losses.softmax_cross_entropy   
@@ -542,15 +555,15 @@ class LSSN(nn.Module):
         """
         
         # Define the layers (nn.RNN does the scan over time)
-        recurrent = nn.RNN(ALIFCell(n_ALIF=self.n_ALIF, n_LIF=self.n_LIF, local_connectivity=self.local_connectivity, sigma = self.sigma,
+        recurrent = nn.RNN(ALIFCell(n_ALIF=self.n_ALIF, n_LIF=self.n_LIF, local_connectivity=self.local_connectivity,sparse_connectivity=self.sparse_connectivity, sigma = self.sigma,
                                     gridshape= self.gridshape, n_neuromodulators=self.n_neuromodulators, thr=self.thr, tau_m=self.tau_m, tau_adaptation=self.tau_adaptation,
-                                    beta = self.beta, gamma = self.gamma, refractory_period = self.refractory_period, k=self.k, radius=self.radius, learning_rule=self.learning_rule,
+                                    beta = self.beta, gamma = self.gamma, refractory_period = self.refractory_period, k=self.k, radius=self.radius, learning_rule=self.learning_rule, input_sparsity=self.input_sparsity,
                                     v_init = self.v_init, a_init=self.a_init, A_thr_init=self.A_thr_init, z_init=self.z_init, r_init=self.r_init, weights_init = self.ALIF_weights_init,
                                     gain = (self.gain[0], self.gain[1]), local_connectivity_seed= self.local_connectivity_seed, cell_loc_seed= self.cell_loc_seed,
-                                    diff_kernel_seed=self.diff_kernel_seed, dt=self.dt, param_dtype=self.param_dtype), variable_broadcast=("params", 'eligibility params', 'spatial params'), name="Recurrent"
+                                    diff_kernel_seed=self.diff_kernel_seed, input_sparsity_seed=self.input_sparsity_seed, dt=self.dt, param_dtype=self.param_dtype), variable_broadcast=("params", 'eligibility params', 'spatial params'), name="Recurrent"
         )
         
-        readout = nn.RNN(ReadOut(n_out=self.n_out, sparse_connectivity=self.sparse_readout_connectivity, b_out=self.b_out, tau_out=self.tau_out, feedback = self.feedback, sparsity=self.readout_sparsity, 
+        readout = nn.RNN(ReadOut(n_out=self.n_out, sparse_connectivity=self.sparse_connectivity, b_out=self.b_out, tau_out=self.tau_out, feedback = self.feedback, sparsity=self.readout_sparsity, 
                                  carry_init= self.out_carry_init, weights_init= self.ReadOut_weights_init,
                                  feedback_init = self.feedback_init, gain = (self.gain[2], self.gain[3]), 
                                  FeedBack_seed=self.FeedBack_seed, sparsity_seed=self.readout_sparsity_seed, dt = self.dt, param_dtype=self.param_dtype), variable_broadcast=("params",'eligibility params', 'spatial params'), name="ReadOut"

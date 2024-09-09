@@ -413,6 +413,10 @@ def compute_grads(batch:Dict[str, Array], state,optimization_loss_fn:Callable, L
         y, grads = autodiff_grads(batch=batch,state=state, optimization_loss_fn=optimization_loss_fn,
                                LS_avail=LS_avail, c_reg=c_reg, f_target=f_target)
         
+        # Guarantee input sparsity is kept        
+        grads['ALIFCell_0']['input_weights'] *= state.spatial_params['ALIFCell_0']['sparse_input']
+       
+       
         # guarantee no autapse
         n_rec = jnp.shape(grads['ALIFCell_0']['recurrent_weights'])[0]
         identity = jnp.eye(n_rec, dtype=grads['ALIFCell_0']['recurrent_weights'].dtype)
@@ -486,6 +490,9 @@ def compute_grads(batch:Dict[str, Array], state,optimization_loss_fn:Callable, L
                                                                             batch_inputs= inputs_in, params=params, LS_avail = LS_avail, z=z, 
                                                                             trial_length=trial_length,f_target=f_target, c_reg=c_reg
         )
+        
+        # Guarantee input sparsity is kept        
+        grads['ALIFCell_0']['input_weights'] *= state.spatial_params['ALIFCell_0']['sparse_input']
         
         # Recurrent Grads
         grads['ALIFCell_0']['recurrent_weights'] = grad_function(batch_init_carries=(init_e_carries['rec'],init_error_grid),

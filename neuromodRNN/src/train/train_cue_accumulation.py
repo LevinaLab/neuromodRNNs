@@ -50,7 +50,7 @@ def model_from_config(cfg)-> LSSN:
   # generate different seed buy drawing random large ints
   key = random.PRNGKey(cfg.net_params.seed)
   subkey, key = random.split(key)
-  feedback_seed,local_connectivity_seed, diff_kernel_seed, cell_loc_seed, readout_sparsity_seed = random.randint(subkey, (5,),10000, 10000000)
+  feedback_seed,local_connectivity_seed, diff_kernel_seed, cell_loc_seed,input_sparsity_seed, readout_sparsity_seed = random.randint(subkey, (6,),10000, 10000000)
   # Not passing beta and b_out because are not fully implemented
   model = LSSN(n_ALIF=cfg.net_arch.n_ALIF,
               n_LIF=cfg.net_arch.n_LIF,
@@ -58,7 +58,7 @@ def model_from_config(cfg)-> LSSN:
               sigma = cfg.net_arch.sigma,
               gridshape=cfg.net_arch.gridshape,
               n_neuromodulators=cfg.net_arch.n_neuromodulators,
-              sparse_readout_connectivity=cfg.net_arch.sparse_readout_connectivity,
+              sparse_connectivity=cfg.net_arch.sparse_connectivity,
               local_connectivity=cfg.net_arch.local_connectivity,
               thr=cfg.net_params.thr,
               tau_m=cfg.net_params.tau_m,
@@ -67,10 +67,12 @@ def model_from_config(cfg)-> LSSN:
               gamma=cfg.net_params.gamma,
               refractory_period= cfg.net_params.refractory_period,
               k=cfg.net_params.k,
-              radius=cfg.net_params.radius,              
+              radius=cfg.net_params.radius,     
+              input_sparsity= cfg.net_params.input_sparsity,         
               readout_sparsity= cfg.net_params.readout_sparsity,
               tau_out=cfg.net_params.tau_out,
               feedback=cfg.net_arch.feedback,
+              input_sparsity_seed = input_sparsity_seed,
               readout_sparsity_seed = readout_sparsity_seed,                        
               FeedBack_seed=feedback_seed,     
               learning_rule=cfg.train_params.learning_rule,
