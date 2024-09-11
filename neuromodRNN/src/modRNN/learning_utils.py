@@ -24,12 +24,8 @@ from flax.typing import Array
 def pseudo_derivative(v: Array, A_thr: Array,r: Array, gamma:float, thr:float) -> Array: 
     """ Compute pseudo derivative
         gamma, thr --> scalars; v, A_thr,r --> (n_rec,)"""
-    # if neuron is refractory period, the pseudo derivative shoould be 0
-    
+    # if neuron is refractory period, the pseudo derivative shoould be 0    
     no_refractory = (r ==0)
-    jax.debug.print("r{}",r[1] )
-    jax.debug.print("no_ref{}",no_refractory[1] )
-    #jax.debug.print("pseudo{}", (no_refractory * (gamma) * jnp.maximum(jnp.zeros_like(v), (1 - jnp.abs((v - A_thr) / thr))))[1] )
     return no_refractory * (gamma/thr) * jnp.maximum(jnp.zeros_like(v), (1 - jnp.abs((v - A_thr) / thr))) #(n_rec,)
 
 def update_v_eligibility_vector(v_vector: Array, inputs: Array, alpha: float) -> Array: # seems to be working
