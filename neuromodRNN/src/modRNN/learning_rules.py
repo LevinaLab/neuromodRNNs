@@ -94,7 +94,7 @@ def e_prop_vectorized(batch_init_carries:Tuple[Dict[str,Array], Array],
 
     # compute firing rate regularization gradient
     acum_eligibility_trace = jnp.sum(eligibility_traces, axis=0) # (n_batches,n_post, n_pre)
-    reg_update = (c_reg / trial_length[:,None,None]) * f_error[:,:, None] * acum_eligibility_trace # (n_post, n_pre)
+    reg_update = - (c_reg / trial_length[:,None,None]) * f_error[:,:, None] * acum_eligibility_trace # (n_post, n_pre)
     reg_update = jnp.transpose(jnp.mean(reg_update, axis=0),(1,0))   # (n_pre, n_post)
     return task_update + reg_update
 
@@ -140,7 +140,7 @@ def e_prop_online(batch_init_carries:Tuple[Dict[str,Array], Array],
         
         task_update = jnp.einsum('bri,bri->ir', jnp.expand_dims(L,axis=2), low_pass_trace) #n_pre, n_post
         
-        reg_update = (c_reg/trial_length[:,None,None]) * f_error[:,:,None] * eligibility_trace # n_post, n_pre
+        reg_update = - (c_reg/trial_length[:,None,None]) * f_error[:,:,None] * eligibility_trace # n_post, n_pre
         reg_update = jnp.transpose(jnp.mean(reg_update, axis=0),(1,0)) # mean over batches and transpose to have shape of weights n_pre, n_post
         return new_eligibility_carries, (task_update,reg_update)
     
@@ -225,7 +225,7 @@ def neuromod_online(batch_init_carries:Tuple[Dict[str,Array], Array],
         
         task_update = jnp.einsum('bri,bri->ir', jnp.expand_dims(L,axis=2), low_pass_trace) #n_pre, n_post
         
-        reg_update = (c_reg/trial_length[:,None,None]) * f_error[:,:,None] * eligibility_trace # n_post, n_pre
+        reg_update = - (c_reg/trial_length[:,None,None]) * f_error[:,:,None] * eligibility_trace # n_post, n_pre
         reg_update = jnp.transpose(jnp.mean(reg_update, axis=0),(1,0)) # mean over batches and transpose to have shape of weights n_pre, n_post
         return (new_eligibility_carries, new_error_grid), (task_update,reg_update)
     
