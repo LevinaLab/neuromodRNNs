@@ -2,7 +2,7 @@
 
 from jax import lax, numpy as jnp
 from jax import vmap
-
+import jax
 # Just for typing the type of inputs of functions
 from typing import (
   Dict,
@@ -25,18 +25,22 @@ def pseudo_derivative(v: Array, A_thr: Array,r: Array, gamma:float, thr:float) -
     """ Compute pseudo derivative
         gamma, thr --> scalars; v, A_thr,r --> (n_rec,)"""
     # if neuron is refractory period, the pseudo derivative shoould be 0
-    no_refractory = (r == 0)
-    return no_refractory * (gamma / thr) * jnp.maximum(jnp.zeros_like(v), (1 - jnp.abs((v - A_thr) / thr))) #(n_rec,)
+    
+    no_refractory = (r ==0)
+    jax.debug.print("r{}",r[1] )
+    jax.debug.print("no_ref{}",no_refractory[1] )
+    #jax.debug.print("pseudo{}", (no_refractory * (gamma) * jnp.maximum(jnp.zeros_like(v), (1 - jnp.abs((v - A_thr) / thr))))[1] )
+    return no_refractory * (gamma/thr) * jnp.maximum(jnp.zeros_like(v), (1 - jnp.abs((v - A_thr) / thr))) #(n_rec,)
 
 def update_v_eligibility_vector(v_vector: Array, inputs: Array, alpha: float) -> Array: # seems to be working
     """  Update voltage eligiblity vector
         alpha --> scalar; v_vector, inputs --> (n_pre,). Note that inputs here can be the inputs to the network (x) or the input from the other recurrent neurons (z), depending on which weight is being updated"""
-    return alpha * v_vector + (1-alpha) * inputs # (n_pre,) --> it only depends o pre-synaptic neuron, so can be store like this and broadcasted to (n_rec, n_pre) where needed
+    return alpha * v_vector + inputs * (1- alpha) # (n_pre,) --> it only depends o pre-synaptic neuron, so can be store like this and broadcasted to (n_rec, n_pre) where needed
   
 def update_a_eligibility_vector(a_vector: Array,v_vector: Array, psi: Array, betas: Array, rho: float) -> Array:
     """ Update adaptation eligiblity vector
         rho --> scalar,  v_vector --> (n_pre); psi,  betas --> (n_post); a_vector --> (n_post, n_pre)"""  
-    return  v_vector[None, ...] * psi[..., None] *(1-rho) + (rho - (1-rho) * betas[...,None] * psi[...,None]) * a_vector #(n_post, n_pre)
+    return  (1-rho) * v_vector[None, ...] * psi[..., None]  + (rho -  (1-rho) * betas[...,None] * psi[...,None]) * a_vector #(n_post, n_pre)
 
 
 def eligibility_trace(v_eligibility_vector: Array, a_eligibility_vector: Array, psi:Array, betas: Array) -> Array:

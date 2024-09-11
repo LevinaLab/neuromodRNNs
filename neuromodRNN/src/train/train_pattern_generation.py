@@ -519,44 +519,43 @@ def train_and_evaluate(cfg) -> TrainState:
     fig1.savefig(os.path.join(figures_directory, "example_1"))      
     plt.close(fig1)
 
-    input_example_2 = visualization_batch['input'][1,:,:]
-    recurrent_example_2 = z[1,:,:]
+    if cfg.train_params.test_mini_batch_size > 2:
+      input_example_2 = visualization_batch['input'][1,:,:]
+      recurrent_example_2 = z[1,:,:]
 
-    fig2 = plt.figure(figsize=(8, 9))
-    gs2 = gridspec.GridSpec(3, 1, height_ratios=[2.5, 2.5, 4])
-    ax2_1 = fig2.add_subplot(gs2[0])
-    ax2_2 = fig2.add_subplot(gs2[1])
-    ax2_3 = fig2.add_subplot(gs2[2])
-   
-    plots.plot_pattern_generation_inputs(input_example_2, ax=ax2_1)
-    plots.plot_recurrent(recurrent_example_2, n_LIF=cfg.net_arch.n_LIF, n_ALIF=cfg.net_arch.n_ALIF, neuron_type="LIF", ax =ax2_2)
-    plots.plot_pattern_generation_prediction(y[1,:,:], targets= visualization_batch["label"][1,:],  ax=ax2_3)
+      fig2 = plt.figure(figsize=(8, 9))
+      gs2 = gridspec.GridSpec(3, 1, height_ratios=[2.5, 2.5, 4])
+      ax2_1 = fig2.add_subplot(gs2[0])
+      ax2_2 = fig2.add_subplot(gs2[1])
+      ax2_3 = fig2.add_subplot(gs2[2])
+    
+      plots.plot_pattern_generation_inputs(input_example_2, ax=ax2_1)
+      plots.plot_recurrent(recurrent_example_2, n_LIF=cfg.net_arch.n_LIF, n_ALIF=cfg.net_arch.n_ALIF, neuron_type="LIF", ax =ax2_2)
+      plots.plot_pattern_generation_prediction(y[1,:,:], targets= visualization_batch["label"][1,:],  ax=ax2_3)
 
-  
-    fig2.suptitle("Example 2: " + cfg.save_paths.condition)
-    fig2.tight_layout()
-    fig2.savefig(os.path.join(figures_directory, "example_2"))      
-    plt.close(fig2)
+    
+      fig2.suptitle("Example 2: " + cfg.save_paths.condition)
+      fig2.tight_layout()
+      fig2.savefig(os.path.join(figures_directory, "example_2"))      
+      plt.close(fig2)
 
 
-    input_example_3 = visualization_batch['input'][2,:,:]
-    recurrent_example_3 = z[2,:,:]
+      input_example_3 = visualization_batch['input'][2,:,:]
+      recurrent_example_3 = z[2,:,:]
 
-    fig3 = plt.figure(figsize=(8, 9))
-    gs3 = gridspec.GridSpec(3, 1, height_ratios=[2.5, 2.5, 4])
-    ax3_1 = fig3.add_subplot(gs3[0])
-    ax3_2 = fig3.add_subplot(gs3[1])
-    ax3_3 = fig3.add_subplot(gs3[2])
-  
+      fig3 = plt.figure(figsize=(8, 9))
+      gs3 = gridspec.GridSpec(3, 1, height_ratios=[2.5, 2.5, 4])
+      ax3_1 = fig3.add_subplot(gs3[0])
+      ax3_2 = fig3.add_subplot(gs3[1])
+      ax3_3 = fig3.add_subplot(gs3[2])
+    
 
-    plots.plot_pattern_generation_inputs(input_example_3, ax=ax3_1)
-    plots.plot_recurrent(recurrent_example_3, n_LIF=cfg.net_arch.n_LIF, n_ALIF=cfg.net_arch.n_ALIF, neuron_type="LIF", ax =ax3_2)
-    plots.plot_pattern_generation_prediction(y[2,:,:], targets= visualization_batch["label"][2,:],  ax=ax3_3)
+      plots.plot_pattern_generation_inputs(input_example_3, ax=ax3_1)
+      plots.plot_recurrent(recurrent_example_3, n_LIF=cfg.net_arch.n_LIF, n_ALIF=cfg.net_arch.n_ALIF, neuron_type="LIF", ax =ax3_2)
+      plots.plot_pattern_generation_prediction(y[2,:,:], targets= visualization_batch["label"][2,:],  ax=ax3_3)
 
-    fig3.suptitle("Example 3: " + cfg.save_paths.condition)
-    fig3.tight_layout()
-    fig3.savefig(os.path.join(figures_directory, "example_3"))   
-    plt.close(fig3)
+      fig3.suptitle("Example 3: " + cfg.save_paths.condition)
+      fig3.tight_layout()
+      fig3.savefig(os.path.join(figures_directory, "example_3"))   
+      plt.close(fig3)
 
-def test_func(cfg):
-   print(cfg.task.task_name)

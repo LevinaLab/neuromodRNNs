@@ -447,7 +447,8 @@ def compute_grads(batch:Dict[str, Array], state,optimization_loss_fn:Callable, L
         
         # unpack recurrent carries
         v,_, A_thr , z, r = recurrent_carries # _ is a, which is not used 
-
+        #jax.debug.print("z{}", z[:,:,1])
+        #jax.debug.print("x{}", batch["input"][:,:,-17])
         # prepare inputs  
         v = jnp.transpose(v, (1,0,2)) # for the scan needs to be time major (n_t,n_batches, n_rec)
         A_thr = jnp.transpose(A_thr, (1,0,2)) # for the scan needs to be time major
@@ -456,7 +457,7 @@ def compute_grads(batch:Dict[str, Array], state,optimization_loss_fn:Callable, L
         x = jnp.transpose(batch["input"], (1,0,2)) # for the scan needs to be time major (n_t,n_batches, n_in)
         y_true = batch["label"]
         trial_length = batch["trial_duration"]
-
+        
         # Pack inputs for each layer weight grads
         inputs_in = (y, y_true, (v, A_thr,r, x))
         inputs_rec = (y, y_true, (v, A_thr,r, z))
