@@ -137,7 +137,7 @@ def optimization_loss(logits, labels, z, c_reg, f_target, trial_length):
     
   av_f_rate = learning_utils.compute_firing_rate(z=z, trial_length=trial_length)
   f_target = f_target / 1000 # f_target is given in Hz, bu av_f_rate is spikes/ms --> Bellec 2020 used the f_reg also in spikes/ms
-  regularization_loss = 0.5 * c_reg * jnp.sum(jnp.square(av_f_rate - f_target))
+  regularization_loss = 0.5 * c_reg * jnp.sum(jnp.mean(jnp.square(av_f_rate - f_target),0)) # average over batches
   return task_loss + regularization_loss
  
 
