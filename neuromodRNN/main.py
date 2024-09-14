@@ -46,7 +46,7 @@ class NetworkArchitecture:
 
 @dataclass
 class NetworkParams:
-    thr: float = 0.6
+    thr: float = 0.010
     tau_m: float = 20
     tau_out: float = 20
     tau_adaptation: float = 2000
@@ -72,7 +72,7 @@ class TrainParams:
     iterations: int = 2000  # how many time steps
     stop_criteria: float = 0.95
     f_target:float = 10.
-    c_reg: float = 1.
+    c_reg: float = 0.1
     learning_rule:str = 'e_prop_hardcoded'
 
     
