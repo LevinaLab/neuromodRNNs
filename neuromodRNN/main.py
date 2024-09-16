@@ -50,11 +50,11 @@ class NetworkParams:
     tau_m: float = 20
     tau_out: float = 20
     tau_adaptation: float = 2000
-    beta: float = 1.7
+    beta: float = 1.8
     bias_out: float = 0.0
     gamma: float = 0.3
     refractory_period: int = 5
-    w_init_gain: Tuple[float,...] = field(default_factory=lambda: (0.5, 0.1, 0.5, 0.5))
+    w_init_gain: Tuple[float,...] = field(default_factory=lambda: (1.,1.,1.,1.))
     dt: float = 1 # time step of simulation in ms  
     seed: int = 42
     k: float = 0 # decay of diffusion
