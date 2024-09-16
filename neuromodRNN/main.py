@@ -64,7 +64,7 @@ class NetworkParams:
 
 @dataclass
 class TrainParams:
-    lr: float = 0.001 # learning rate
+    lr: float = 0.0025 # learning rate
     train_batch_size: int = 64 # how many samples before weight update
     train_mini_batch_size: int = 8 # Due to memory limitations, load subsets of the batch at each time
     test_batch_size: int = 512
