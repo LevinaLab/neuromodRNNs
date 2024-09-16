@@ -159,13 +159,13 @@ class ALIFCell(nn.recurrent.RNNCellBase):
         rho = self.variable('eligibility params', 'rho', lambda: jnp.array(jnp.exp(-self.dt/self.tau_adaptation)))
         n_rec = self.variable('eligibility params', 'n_rec', lambda: jnp.array(self.n_LIF + self.n_ALIF))
         
-        def calculate_betas(beta= self.beta, rho=rho.value, alpha=alpha.value, n_LIF=self.n_LIF, n_ALIF=self.n_ALIF): 
-                """Compute value of the adaptation strength as in https://github.com/IGITUGraz/eligibility_propagation/blob/master/Figure_3_and_S7_e_prop_tutorials/tutorial_evidence_accumulation_with_alif.py"""
-                return beta * (1 - rho) / (1 - alpha) * jnp.concatenate((jnp.zeros(n_LIF), jnp.ones(n_ALIF)))  # notice that for LIFs, beta is 0           
+        def init_betas(beta= self.beta, rho=rho.value, alpha=alpha.value, n_LIF=self.n_LIF, n_ALIF=self.n_ALIF): 
+                """Init betas"""
+                return beta * jnp.concatenate((jnp.zeros(n_LIF), jnp.ones(n_ALIF)))  # notice that for LIFs, beta is 0           
                 
 
         # Initialize betas as a fixed variable
-        betas = self.variable('eligibility params', 'betas', calculate_betas) # dim: (n_rec,)
+        betas = self.variable('eligibility params', 'betas', init_betas) # dim: (n_rec,)
         
         # Initialize position of recurrent cells in 2-D grid
         cells_loc = self.variable('spatial params', 'cells_loc', 
