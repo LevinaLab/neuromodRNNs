@@ -19,9 +19,9 @@ class Task:
 class CueAccumulation(Task):
     task_name: str = "cue_accumulation"
     task_type: str = "classification"
-    LS_avail: int = 1
+    LS_avail: int = 150
     n_cues: List[int] = field(default_factory=lambda: [7])
-    seed: Optional[int] = None
+    seed: Optional[int] = 42
     min_delay: int = 1500
     max_delay:int = 1501
     f_input: float = 40.

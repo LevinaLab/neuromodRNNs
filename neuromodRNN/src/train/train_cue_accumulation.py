@@ -367,10 +367,13 @@ def train_and_evaluate(cfg) -> TrainState:
     
     # Main training loop.
     logger.info('Starting training...')
-    for epoch in range(1, cfg.train_params.iterations+1): # change size of loop
+    # generate random seeds for using to generate reproducible training batches    
+    train_task_seeds = random.randint(random.PRNGKey(cfg.task.seed), (cfg.train_params.iterations,), 10000, 10000000)
+    for epoch, train_seed in zip(range(1, cfg.train_params.iterations+1), train_task_seeds): # change size of loop
+        print(train_seed.item())
         train_batch=  tasks.cue_accumulation_task(n_batches= cfg.train_params.train_batch_size, 
                                                              batch_size=cfg.train_params.test_mini_batch_size, 
-                                                             seed = cfg.task.seed, n_cues=cfg.task.n_cues, min_delay=cfg.task.min_delay,
+                                                             seed = train_seed.item(), n_cues=cfg.task.n_cues, min_delay=cfg.task.min_delay,
                                                              max_delay =cfg.task.max_delay, n_population= cfg.net_arch.n_neurons_channel, 
                                                              f_input =cfg.task.f_input, f_background=cfg.task.f_background,
                                                              t_cue = cfg.task.t_cue, t_cue_spacing = cfg.task.t_cue_spacing, 
