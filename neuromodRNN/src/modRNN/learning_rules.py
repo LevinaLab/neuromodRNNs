@@ -277,8 +277,7 @@ def output_grads(batch_init_carries: Dict[str,Array], batch_inputs: Tuple[Array,
         true_y_batch = jnp.expand_dims(true_y_batch, axis=-1) #
 
     err = y_batch[:,-LS_avail:,:] - true_y_batch[:,-LS_avail:,:]  #(n_batch, n_time, n_out)
-    
-    
+        
     # Scan over time to get history of low pass filtered z 
     _, traces = lax.scan(
         lambda carry, input: learning_utils.batch_readout_eligibility_vector(carry, input, kappa),
@@ -287,13 +286,10 @@ def output_grads(batch_init_carries: Dict[str,Array], batch_inputs: Tuple[Array,
     )
        
     crop_trace = traces[-LS_avail:,:,:] #(n_t,n_b,n_rec)
-     
+    
     # perform element-wise multiplication and sum over batches and time dimensions    
     grads = jnp.einsum('btor,tbor->ro', jnp.expand_dims(err,3), jnp.expand_dims(crop_trace,2)) # weights have shape (pre, post), so grad should have same shape --> ro)
-    
     return grads
-
-
 
 def autodiff_grads(batch,state, optimization_loss_fn,LS_avail, c_reg, f_target):
     x = batch["input"] # in compute_grads, transpose x to (n_t, n_b, n_in) for the hardcoded versions, so for here need to be transpose back to (n_b, n_t, n_in)
@@ -310,12 +306,19 @@ def autodiff_grads(batch,state, optimization_loss_fn,LS_avail, c_reg, f_target):
         loss = optimization_loss_fn(logits=y[:, -LS_avail:, :], labels=labels[:,-LS_avail:, :], z=z,
                                      c_reg=c_reg, f_target=f_target, trial_length=trial_length
         ) # optimization loss will be both task and regultarization, so need to make sure everything is passed
-        return loss, (y,z)
+        return loss, y
     grad_fn = value_and_grad(loss_fn, has_aux=True)
-    (loss, aux_values), grads = grad_fn(state.params)
-    y, z = aux_values
+    (loss, y), grads = grad_fn(state.params)
     return y, grads  
 
+def shift_one_time_step_back(array):
+    """Shifts an array one step back on time. New array has entry 0 at time 0"""
+    # Create a new array initialized to zeros
+    shifted_array = jnp.zeros_like(array)
+    
+    # Set new_array[:, 1:, :] to array[:, :-1, :]
+    shifted_array = shifted_array.at[1:, :, :].set(array[:-1, :, :])    
+    return shifted_array
 
 
 def compute_grads(batch:Dict[str, Array], state,optimization_loss_fn:Callable, LS_avail: int, 
@@ -428,7 +431,7 @@ def compute_grads(batch:Dict[str, Array], state,optimization_loss_fn:Callable, L
         
         # Guarantee readout sparsity is kept        
         grads['ReadOut_0']['readout_weights'] *= state.spatial_params['ReadOut_0']['sparse_readout']
-        return y, grads  # returning z only for purpose of plotting average firing rate
+        return y, grads  
     
    
     elif (learning_rule == "e_prop_hardcoded") | (learning_rule == "diffusion"):
@@ -436,7 +439,6 @@ def compute_grads(batch:Dict[str, Array], state,optimization_loss_fn:Callable, L
         # Forward pass
         variables = {'params': state.params, 'eligibility params':state.eligibility_params, 'spatial params':state.spatial_params}
         recurrent_carries, logits = state.apply_fn(variables, batch['input'])  
-        
         # Compute e-prop Updates
         # If task is classification, the eprop update function expects y to be already the assigned probability,
         # but model return logits. 
@@ -447,11 +449,11 @@ def compute_grads(batch:Dict[str, Array], state,optimization_loss_fn:Callable, L
         
         # unpack recurrent carries
         v,_, A_thr , z, r = recurrent_carries # _ is a, which is not used 
-  
+        
         # prepare inputs  
         v = jnp.transpose(v, (1,0,2)) # for the scan needs to be time major (n_t,n_batches, n_rec)
         A_thr = jnp.transpose(A_thr, (1,0,2)) # for the scan needs to be time major
-        z = jnp.transpose(z, (1,0,2)) # for the scan needs to be time major (n_t,n_batches, n_rec)
+        z = jnp.transpose(z, (1,0,2)) # for the scan needs to be time major (n_t,n_batches, n_rec)        
         r = jnp.transpose(r, (1,0,2)) # for the scan needs to be time major (n_t,n_batches, n_rec)
         x = jnp.transpose(batch["input"], (1,0,2)) # for the scan needs to be time major (n_t,n_batches, n_in)
         y_true = batch["label"]
@@ -459,7 +461,10 @@ def compute_grads(batch:Dict[str, Array], state,optimization_loss_fn:Callable, L
         
         # Pack inputs for each layer weight grads
         inputs_in = (y, y_true, (v, A_thr,r, x))
-        inputs_rec = (y, y_true, (v, A_thr,r, z))
+
+        # Input of recurrent synapses have 1 time step delay. So to compute recurrent eligibility trace
+        # need to delay the output spikes in one time step.
+        inputs_rec = (y, y_true, (v, A_thr,r, shift_one_time_step_back(z)))        
         inputs_out = (y, y_true, z)
         
         # State
@@ -520,7 +525,7 @@ def compute_grads(batch:Dict[str, Array], state,optimization_loss_fn:Callable, L
                                                             LS_avail=LS_avail)
 
         grads['ReadOut_0']['readout_weights'] *= state.spatial_params['ReadOut_0']['sparse_readout']        
-        return logits, grads # returning z only for purpose of plotting average firing rate
+        return logits, grads 
     
     else:
         raise NotImplementedError("The requested method {} hasn't being implemented. Please provide one of the valid learning rules: 'e_prop_hardcoded', 'e_prop_autodiff', 'diffusion' or 'BPTT'".format(learning_rule))
