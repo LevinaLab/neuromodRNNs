@@ -131,8 +131,7 @@ def e_prop_online(batch_init_carries:Tuple[Dict[str,Array], Array],
     def one_step_gradient(eligibility_carries, inputs, eligibility_params):
         y_batch_step, true_y_batch_step, eligibility_input_step = inputs
         task_error = learning_utils.error_signal(y=y_batch_step, true_y=true_y_batch_step) #(n_b, n_out)
-        L = learning_utils.batched_learning_signal(error_signal=task_error, kernel=kernel) #(n_b,n_rec)
-        jax.debug.print("Non zero: {}", jnp.where(L!=0., 1, 0).sum())
+        L = learning_utils.batched_learning_signal(error_signal=task_error, kernel=kernel) #(n_b,n_rec)        
         new_eligibility_carries, eligibility_trace = learning_utils.batched_eligibitity_trace(eligibility_carries,eligibility_input_step, 
                                                                                                eligibility_params
         ) #(n_b, n_post, n_pre)
@@ -140,7 +139,6 @@ def e_prop_online(batch_init_carries:Tuple[Dict[str,Array], Array],
         new_eligibility_carries['low_pass_eligibility_trace'], low_pass_trace = learning_utils.batched_low_pass_eligibility_trace(new_eligibility_carries['low_pass_eligibility_trace'],eligibility_trace,eligibility_params)
         
         task_update = jnp.einsum('bri,bri->ir', jnp.expand_dims(L,axis=2), low_pass_trace) #n_pre, n_post
-        jax.debug.print("Non zero update: {}", jnp.where(task_update!=0., 1, 0).sum())
         reg_update = - (c_reg/trial_length[:,None,None]) * f_error[:,:,None] * eligibility_trace # n_post, n_pre
         reg_update = jnp.transpose(jnp.mean(reg_update, axis=0),(1,0)) # mean over batches and transpose to have shape of weights n_pre, n_post
         return new_eligibility_carries, (task_update,reg_update)
@@ -193,7 +191,7 @@ def neuromod_online(batch_init_carries:Tuple[Dict[str,Array], Array],
     true_y_batch = jnp.transpose(true_y_batch, (1,0,2)) # time need to be leading axis (n_t,n_b, n_out)
 
     def create_LS_vector():
-    # Vector to indicate if learning signal is available at that time step or not
+        """create vector at 0s at time steps where Learning Signal is not available, and 1s where it is """
         # learning signal available every time step
         LS_vector = jnp.ones_like(y_batch)  #(n_t,n_b,n_out)
         if LS_avail != 0:
@@ -201,7 +199,7 @@ def neuromod_online(batch_init_carries:Tuple[Dict[str,Array], Array],
         return LS_vector
 
     LS_vector = create_LS_vector()
-    jax.debug.print("LS vector {}", LS_vector)
+    
 
     # define update function for single time step
     def one_step_gradient(carries, inputs):
@@ -229,16 +227,14 @@ def neuromod_online(batch_init_carries:Tuple[Dict[str,Array], Array],
         new_error_grid = diffused_error_grid.at[:,0,cell_rows,cell_cols].add(incoming_L)
         # Extract the learning signal available to each cell
         L = new_error_grid[:,0, cell_rows, cell_cols] #(n_b,n_rec)
-        jax.debug.print("Non zero: {}", jnp.where(L!=0., 1, 0).sum())
+        
         # From now on same as e-prop        
         new_eligibility_carries, eligibility_trace = learning_utils.batched_eligibitity_trace(eligibility_carries,eligibility_input_step, 
                                                                                                eligibility_params
         ) #(n_b, n_post, n_pre)
         
         new_eligibility_carries['low_pass_eligibility_trace'], low_pass_trace = learning_utils.batched_low_pass_eligibility_trace(new_eligibility_carries['low_pass_eligibility_trace'],eligibility_trace,eligibility_params)
-        jax.debug.print("Non zero eligibility: {}", jnp.where(low_pass_trace[0]!=0., 1, 0).sum())
         task_update = jnp.einsum('bri,bri->ir', jnp.expand_dims(L,axis=2), low_pass_trace) #n_pre, n_post
-        jax.debug.print("Non zero update: {}", jnp.where(task_update!=0., 1, 0).sum())
         reg_update = - (c_reg/trial_length[:,None,None]) * f_error[:,:,None] * eligibility_trace # n_post, n_pre
         reg_update = jnp.transpose(jnp.mean(reg_update, axis=0),(1,0)) # mean over batches and transpose to have shape of weights n_pre, n_post
         return (new_eligibility_carries, new_error_grid), (task_update,reg_update)
