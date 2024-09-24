@@ -198,7 +198,9 @@ def train_step(
     f_target: float,
     c_reg: float,
     learning_rule: str,
-    task: str
+    task: str,
+    shuffle:bool,
+    shuffle_key:PRNGKey
    
 ) -> Tuple[TrainState, Metrics]:
     
@@ -209,13 +211,14 @@ def train_step(
     y, grads = learning_rules.compute_grads(batch=batch, state=state, optimization_loss_fn=optimization_loss_fn, 
                                          LS_avail=LS_avail, local_connectivity=local_connectivity, f_target=f_target, 
                                          c_reg=c_reg, learning_rule=learning_rule,
-                                         task=task)
+                                         task=task, shuffle=shuffle, 
+                                         key=shuffle_key)
     
     new_state = state.apply_gradients(grads=grads)
 
     # For computing loss, we use logits instead of already computed softmax
     metrics = compute_metrics(targets=batch['label'][:,-LS_avail:], predictions=y[:,-LS_avail:,:])    
-    return new_state, metrics, grads # return grads only or plotting reasons
+    return new_state, metrics, grads # return grads only for plotting reasons
 
 def train_epoch(
     train_step_fn: Callable[..., Tuple[TrainState, Metrics]],
@@ -228,7 +231,9 @@ def train_epoch(
     f_target: float,
     c_reg: float,
     learning_rule:str,
-    task:str
+    task:str,
+    shuffle:bool,
+    shuffle_key:PRNGKey
     ) -> Tuple[TrainState, Metrics]:
 
     """Train for a single epoch."""
@@ -237,7 +242,8 @@ def train_epoch(
     for batch_idx, batch in enumerate(train_batches):
         state, metrics, grads = train_step_fn(state=state, batch=batch, optimization_loss_fn=optimization_loss_fn,
                                        LS_avail=LS_avail, local_connectivity=local_connectivity,
-                                       f_target=f_target, c_reg=c_reg, learning_rule=learning_rule, task=task)
+                                       f_target=f_target, c_reg=c_reg, learning_rule=learning_rule, task=task,
+                                       shuffle=shuffle, shuffle_key=shuffle_key)
         batch_metrics.append(metrics)
         accumulated_grads = jax.tree_map(lambda a, g: a + g, accumulated_grads, grads) # this is only for plotting, the update is accumulated already using Optax.MultiSteps
     # Compute the metrics for this epoch.
@@ -305,11 +311,14 @@ def train_and_evaluate(cfg) -> TrainState:
     n_in = cfg.net_arch.n_neurons_channel
 
     
-    # Create model and a state that contains the parameters.
-    rng = random.key(cfg.net_params.seed) # in model to config, consume the splits, not the key itself, so should be differetn
+   
+    # split keys
+    key = random.key(cfg.net_params.seed) # although already consumed, this will be used in very different way and not problematic to have similar key (will keep splitting for shuffle)
+    shuffle_key, state_key, key = random.split(key, 3)
     
+    # Create model and a state that contains the parameters.    
     model = model_from_config(cfg)
-    state = create_train_state(rng, cfg.train_params.lr, model, input_shape=(cfg.train_params.train_mini_batch_size, n_in), batch_size=cfg.train_params.train_batch_size, mini_batch_size=cfg.train_params.train_mini_batch_size)  
+    state = create_train_state(state_key, cfg.train_params.lr, model, input_shape=(cfg.train_params.train_mini_batch_size, n_in), batch_size=cfg.train_params.train_batch_size, mini_batch_size=cfg.train_params.train_mini_batch_size)  
     
     # For plotting
     loss_training = []
@@ -318,7 +327,7 @@ def train_and_evaluate(cfg) -> TrainState:
     normalized_loss_eval = []
     iterations = []
     # Compile step functions.
-    train_step_fn = jax.jit(train_step, static_argnames=["LS_avail", "local_connectivity", "learning_rule", "task"])
+    train_step_fn = jax.jit(train_step, static_argnames=["LS_avail", "local_connectivity", "learning_rule", "task", "shuffle"])
     eval_step_fn = jax.jit(eval_step, static_argnames=["LS_avail"])
     
 
@@ -360,6 +369,8 @@ def train_and_evaluate(cfg) -> TrainState:
     
     
     for epoch in range(1, cfg.train_params.iterations+1): # change size of loop
+        sub_shuffle_key, shuffle_key = random.split(shuffle_key) # splits key to get new one every batch
+        
         train_batch=  tasks.pattern_generation(n_batches= cfg.train_params.train_batch_size, 
                                                              batch_size=cfg.train_params.test_mini_batch_size, 
                                                              seed = cfg.task.seed, frequencies=cfg.task.frequencies,
@@ -371,7 +382,8 @@ def train_and_evaluate(cfg) -> TrainState:
         logger.info("\t Starting Epoch:{} ".format(epoch))     
         state, train_metrics, accumulated_grads = train_epoch(train_step_fn=train_step_fn, state=state, train_batches=train_batch, epoch=epoch, optimization_loss_fn=closure, LS_avail=cfg.task.LS_avail,
                                                              local_connectivity=model.local_connectivity, f_target=cfg.train_params.f_target, c_reg=cfg.train_params.c_reg,
-                                                             learning_rule=cfg.train_params.learning_rule, task=cfg.task.task_type)
+                                                             learning_rule=cfg.train_params.learning_rule, task=cfg.task.task_type,
+                                                             shuffle=cfg.train_params.shuffle, shuffle_key=sub_shuffle_key )
         
        
         

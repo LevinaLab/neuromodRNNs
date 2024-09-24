@@ -268,3 +268,40 @@ def firing_rate_error(z:Array, trial_length:Array, f_target:float)->Array:
     firing_rates = compute_firing_rate(z, trial_length) #(n_batches, n_rec)
     error = (f_target /1000) - firing_rates #  divide by 1000, because all units are in ms, but f_target should be passed in Hz
     return error # (n_batches, n_rec)
+
+#############################################################################################
+
+def shift_one_time_step_back(array):
+    """Shifts an array one step back on time. New array has entry 0 at time 0"""
+    # Create a new array initialized to zeros
+    shifted_array = jnp.zeros_like(array)
+    
+    # Set new_array[:, 1:, :] to array[:, :-1, :]
+    shifted_array = shifted_array.at[1:, :, :].set(array[:-1, :, :])    
+    return shifted_array
+
+
+
+
+
+def shuffle_error_grid(key, error_grid):
+    """Shuffle the error grid within the same batch and within same neurotransmitter"""
+    
+    n_batches, _, h, w = error_grid.shape
+    
+    # Create a random permutation of indices for each batch
+    batch_indices = jnp.arange(h * w)
+    
+    #Shuffle each batch independently
+    shuffled_indices = jax.vmap(lambda k: jax.random.permutation(k, batch_indices, independent=True))(jax.random.split(key, n_batches))
+
+    # Flatten the last two dimensions for easy reshaping
+    flat_grid = error_grid.reshape(n_batches, 1, h * w)
+    
+    # Apply the shuffled indices to the last two dimensions for each batch
+    shuffled_grid = jax.vmap(lambda x_b, idx: x_b[:, idx])(flat_grid, shuffled_indices)
+    
+    # Reshape back to the original shape
+    shuffled_grid = shuffled_grid.reshape(n_batches, 1, h, w)
+    
+    return shuffled_grid

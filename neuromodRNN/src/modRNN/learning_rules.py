@@ -24,7 +24,7 @@ from typing import (
   Tuple,
   Callable
  )
-from flax.typing import Array
+from flax.typing import Array, PRNGKey
 
 
 
@@ -32,7 +32,8 @@ from flax.typing import Array
 def e_prop_vectorized(batch_init_carries:Tuple[Dict[str,Array], Array], 
                            batch_inputs: Tuple[Array, Array,Tuple[Array, Array, Array]], 
                            params: Tuple[Dict[str,Dict],Dict[str,Dict]], 
-                           LS_avail:int, z:Array, trial_length:Array, f_target: float, c_reg: float                         
+                           LS_avail:int, z:Array, trial_length:Array, f_target: float, c_reg: float,
+                           shuffle:bool, key:PRNGKey                         
     ):
     """
     Implements vectorized version of e-prop, where update computation is done "offline".It is more efficient for tasks where learning signal is avaialble only at a few number of time steps since it then allows
@@ -102,7 +103,8 @@ def e_prop_vectorized(batch_init_carries:Tuple[Dict[str,Array], Array],
 def e_prop_online(batch_init_carries:Tuple[Dict[str,Array], Array],
                 batch_inputs: Tuple[Array, Array,Tuple[Array, Array, Array]], 
                 params: Tuple[Dict[str,Dict],Dict[str,Dict]], 
-                LS_avail:int, z:Array, trial_length:Array, f_target: float, c_reg: float
+                LS_avail:int, z:Array, trial_length:Array, f_target: float, c_reg: float,
+                shuffle:bool, key:PRNGKey
 ):
     """
     Implements "online" version of e-prop, where updates are compute "online", but applied only after end of batch. it requires less memory usage and therefore more suitable
@@ -159,7 +161,8 @@ def e_prop_online(batch_init_carries:Tuple[Dict[str,Array], Array],
 def neuromod_online(batch_init_carries:Tuple[Dict[str,Array], Array],
                     batch_inputs: Tuple[Array, Array,Tuple[Array, Array, Array]],                     
                     params: Tuple[Dict[str,Dict],Dict[str,Dict]],                     
-                    LS_avail:int, z:Array, trial_length:Array, f_target: float, c_reg: float
+                    LS_avail:int, z:Array, trial_length:Array, f_target: float, c_reg: float, 
+                    shuffle: bool, key: PRNGKey
 ):
     """
     Implements "online" version of neuromodulator diffusion updated, where updates are compute "online", but applied only after end of batch. 
@@ -220,6 +223,9 @@ def neuromod_online(batch_init_carries:Tuple[Dict[str,Array], Array],
         
         # Diffuses previous error using CA. Grid has shape (n_b, n_neuromodulators, h, w).
         diffused_error_grid = learning_utils.error_diffusion(carry=error_grid, inputs=jnp.zeros(1), params=(radius, diff_K)) # the function doesnt use inputs, it is just there in case decide to scan over it individually
+        
+        if shuffle:
+            diffused_error_grid = learning_utils.shuffle_error_grid(key=key, error_grid=diffused_error_grid)
         
         # get indices of where to modify --> add new error signal to locations where they are released        
         cell_rows, cell_cols = cells_loc[:, 0], cells_loc[:, 1]
@@ -321,18 +327,12 @@ def autodiff_grads(batch,state, optimization_loss_fn,LS_avail, c_reg, f_target):
     (loss, y), grads = grad_fn(state.params)
     return y, grads  
 
-def shift_one_time_step_back(array):
-    """Shifts an array one step back on time. New array has entry 0 at time 0"""
-    # Create a new array initialized to zeros
-    shifted_array = jnp.zeros_like(array)
-    
-    # Set new_array[:, 1:, :] to array[:, :-1, :]
-    shifted_array = shifted_array.at[1:, :, :].set(array[:-1, :, :])    
-    return shifted_array
+
 
 
 def compute_grads(batch:Dict[str, Array], state,optimization_loss_fn:Callable, LS_avail: int, 
-                  local_connectivity: bool, f_target:float, c_reg:float, learning_rule:str, task:str) ->Dict[str, Dict]:
+                  local_connectivity: bool, f_target:float, c_reg:float, learning_rule:str, task:str,
+                  shuffle:bool, key:PRNGKey) ->Dict[str, Dict]:
     """
     Compute grads according to chosen learning rule.
 
@@ -408,7 +408,10 @@ def compute_grads(batch:Dict[str, Array], state,optimization_loss_fn:Callable, L
         Str representing which learning rule to apply
     task: str
         Str representing nature of loss (for now only accepts "classification" or "regression")
-
+    shuffle: bool
+        Bool representing if error grid should be randomly shuffled. True is used as control of the method
+    key:
+        key consumed for random shuffling of error grid
     Returns  
     ----------  
     logits: Array (n_b, n_t, n_out)
@@ -474,7 +477,7 @@ def compute_grads(batch:Dict[str, Array], state,optimization_loss_fn:Callable, L
 
         # Input of recurrent synapses have 1 time step delay. So to compute recurrent eligibility trace
         # need to delay the output spikes in one time step.
-        inputs_rec = (y, y_true, (v, A_thr,r, shift_one_time_step_back(z)))        
+        inputs_rec = (y, y_true, (v, A_thr,r, learning_utils.shift_one_time_step_back(z)))        
         inputs_out = (y, y_true, z)
         
         # State
@@ -504,7 +507,7 @@ def compute_grads(batch:Dict[str, Array], state,optimization_loss_fn:Callable, L
         # Input Grads
         grads['ALIFCell_0']['input_weights'] = grad_function(batch_init_carries=(init_e_carries['inputs'], init_error_grid),
                                                                             batch_inputs= inputs_in, params=params, LS_avail = LS_avail, z=z, 
-                                                                            trial_length=trial_length,f_target=f_target, c_reg=c_reg
+                                                                            trial_length=trial_length,f_target=f_target, c_reg=c_reg, shuffle=shuffle, key=key
         )
         
         # Guarantee input sparsity is kept        
@@ -514,7 +517,7 @@ def compute_grads(batch:Dict[str, Array], state,optimization_loss_fn:Callable, L
         grads['ALIFCell_0']['recurrent_weights'] = grad_function(batch_init_carries=(init_e_carries['rec'],init_error_grid),
                                                                             batch_inputs=inputs_rec, params=params, LS_avail =LS_avail, z=z,
                                                                             trial_length=trial_length,f_target=f_target,
-                                                                            c_reg=c_reg
+                                                                            c_reg=c_reg, shuffle=shuffle, key=key
         )
         
             

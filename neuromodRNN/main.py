@@ -74,7 +74,7 @@ class TrainParams:
     f_target:float = 10.
     c_reg: float = 0.1
     learning_rule:str = 'e_prop_hardcoded'
-
+    shuffle:bool = False # shuffle or not the diffusion grid. Only relevant for diffusion
     
  
     
