@@ -7,6 +7,9 @@ from typing import Any, Dict, Tuple, Optional
 import os
 import sys
 import logging
+from jax import config
+
+config.update("jax_default_matmul_precision", "float32")
 
 file_dir = str(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(file_dir)
