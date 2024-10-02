@@ -32,7 +32,7 @@ from typing import (
   Tuple,
   Iterable  
  )
-from flax.typing import (PRNGKey)
+from flax.typing import (PRNGKey, Dtype)
 
 Array = jnp.ndarray
 
@@ -46,7 +46,7 @@ def model_from_config(cfg)-> LSSN:
     and it will only work correclty with their default values. Also not passing any of the weight or
     carries init functions but they can be modified after initialization, before training starts. 
   """
-  
+
   # generate different seed buy drawing random large ints
   key = random.PRNGKey(cfg.net_params.seed)
   subkey, key = random.split(key)
@@ -80,13 +80,13 @@ def model_from_config(cfg)-> LSSN:
               diff_kernel_seed=diff_kernel_seed,
               cell_loc_seed=cell_loc_seed,                                                
               gain=cfg.net_params.w_init_gain,
-              dt=cfg.net_params.dt,         
+              dt=cfg.net_params.dt                
               )
   return model 
 
 def get_initial_params(rng:PRNGKey, model:LSSN, input_shape:Tuple[int,...])->Tuple[Dict,]:
   """Returns randomly initialized parameters, eligibility parameters and connectivity mask."""
-  dummy_x = jnp.ones(input_shape)
+  dummy_x = jnp.ones(input_shape, dtype=jnp.float64)
   variables = model.init(rng, dummy_x)
   return variables['params'], variables['eligibility params'], variables['spatial params']
     
@@ -145,7 +145,23 @@ def optimization_loss(logits, labels, z, c_reg, f_target, trial_length):
   return task_loss + regularization_loss
 
 
+def compute_cosine_similarity(grad_a, grad_b):
+  """Given two grad matrices with shape (n_pre, n_post), compute the cosine similarity in degrees for the flattened grad vectors (n_pre * n_post)"""
 
+  # Flatten the gradients for having it as a vector
+  flattened_grad_a = grad_a.reshape(-1)  # (n_pre * n_post,)
+  flattened_grad_b = grad_b.reshape(-1)  # (n_pre * n_post,)
+
+
+  
+  cosine_sim = losses.cosine_similarity(flattened_grad_a, flattened_grad_b)
+
+  # Compute the angle in radians for each batch
+  angle_in_radians = jnp.arccos(cosine_sim)  # Shape: (n_b,)
+
+  # Compute angle in degrees
+  angle_in_degrees = jnp.degrees(angle_in_radians)  # Shape: (n_b,)
+  return angle_in_degrees
 
 class Metrics(struct.PyTreeNode):
   """Computed metrics."""
@@ -194,7 +210,55 @@ def normalize_batch_metrics(batch_metrics: Sequence[Metrics]) -> Metrics:
   return Metrics(
       loss=total_loss.item() / total, accuracy=total_accuracy.item() / total
   )
-  
+
+def test_e_prop_grads( state: TrainState,
+    train_batches: Dict[str, Array], 
+    optimization_loss_fn: Callable,  
+    LS_avail: int,     
+    local_connectivity: bool,
+    f_target: float,
+    c_reg: float,
+    task: str,
+    shuffle: bool,
+    shuffle_key: PRNGKey):
+
+    accumulated_autodiff_grads = jax.tree_map(lambda x: jnp.zeros_like(x), state.params)
+    accumulated_hardcoded_grads = jax.tree_map(lambda x: jnp.zeros_like(x), state.params)
+    print("dubidu")
+    for batch_idx, batch in enumerate(train_batches):
+      print("bb")
+      _, autodiff_grads = learning_rules.compute_grads(batch=batch, state=state, optimization_loss_fn=optimization_loss_fn, 
+                                         LS_avail=LS_avail, local_connectivity=local_connectivity, f_target=f_target, 
+                                         c_reg=c_reg, learning_rule="e_prop_autodiff",
+                                         task=task, shuffle=shuffle, key=shuffle_key)
+      mask = jnp.where(autodiff_grads['ALIFCell_0']['recurrent_weights']!=0.)
+      
+      accumulated_autodiff_grads = jax.tree_map(lambda a, g: a + g, accumulated_autodiff_grads, autodiff_grads)
+    
+      _, hardcoded_grads = learning_rules.compute_grads(batch=batch, state=state, optimization_loss_fn=optimization_loss_fn, 
+                                        LS_avail=LS_avail, local_connectivity=local_connectivity, f_target=f_target, 
+                                        c_reg=c_reg, learning_rule="e_prop_hardcoded",
+                                        task=task, shuffle=shuffle, key=shuffle_key)
+      accumulated_hardcoded_grads = jax.tree_map(lambda a, g: a + g, accumulated_hardcoded_grads, hardcoded_grads)
+
+    # Autodiff grads
+    autodiff_recurrent = accumulated_autodiff_grads['ALIFCell_0']['recurrent_weights']
+    autodiff_inputs = accumulated_autodiff_grads['ALIFCell_0']['input_weights'] 
+    jax.debug.print("max auto diff grad{}",jnp.max(jnp.abs(autodiff_recurrent)))
+    # Hardcoded grads
+    hardcoded_recurrent = accumulated_hardcoded_grads['ALIFCell_0']['recurrent_weights']
+    hardcoded_inputs = accumulated_hardcoded_grads['ALIFCell_0']['input_weights'] 
+    jax.debug.print("max hardcoded diff grad{}",jnp.max(jnp.abs(hardcoded_recurrent)))
+
+    # cosine similarity
+    recurrent_cos_sim = compute_cosine_similarity(autodiff_recurrent,hardcoded_recurrent)
+    input_cos_sim = compute_cosine_similarity(autodiff_inputs, hardcoded_inputs)
+
+    # max diff
+    max_recurrent = jnp.max(jnp.abs(autodiff_recurrent-hardcoded_recurrent))
+    max_input = jnp.max(jnp.abs(autodiff_inputs-hardcoded_inputs))
+
+    return recurrent_cos_sim, input_cos_sim, max_recurrent, max_input
 
 
 def train_step(
@@ -322,12 +386,14 @@ def train_and_evaluate(cfg) -> TrainState:
     else:
        raise ValueError
     
+
     # Create model and a state that contains the parameters.
     key = random.key(cfg.net_params.seed) # in model to config, consume the splits, not the key itself, so should be differetn
     shuffle_key, state_key, rng = random.split(key, 3)
     
     model = model_from_config(cfg)
-    state = create_train_state(state_key, cfg.train_params.lr, model, input_shape=(cfg.train_params.train_mini_batch_size, n_in), batch_size=cfg.train_params.train_batch_size, mini_batch_size=cfg.train_params.train_mini_batch_size)  
+    state = create_train_state(state_key, cfg.train_params.lr, model, input_shape=(cfg.train_params.train_mini_batch_size, n_in), batch_size=cfg.train_params.train_batch_size,
+                                mini_batch_size=cfg.train_params.train_mini_batch_size )  
 
     # For plotting
     loss_training = []
@@ -335,6 +401,11 @@ def train_and_evaluate(cfg) -> TrainState:
     accuracy_training = []
     accuracy_eval = []
     iterations = []
+    if cfg.train_params.test_grads:
+       recurrent_cos_sim_list = []
+       input_cos_sim_list = []
+       max_recurrent_list = []
+       max_input_list = [] 
     # Compile step functions.
     train_step_fn = jax.jit(train_step, static_argnames=["LS_avail", "local_connectivity", 
                                                          "learning_rule", "task", "shuffle"])
@@ -404,6 +475,25 @@ def train_and_evaluate(cfg) -> TrainState:
             accuracy_eval.append(eval_metrics.accuracy)
             iterations.append(epoch - 1)  
 
+            if cfg.train_params.test_grads:
+              train_batch_test_grad=  tasks.cue_accumulation_task(n_batches= cfg.train_params.train_batch_size, 
+                                                             batch_size=cfg.train_params.test_mini_batch_size, 
+                                                             seed = train_seed.item(), n_cues=cfg.task.n_cues, min_delay=cfg.task.min_delay,
+                                                             max_delay =cfg.task.max_delay, n_population= cfg.net_arch.n_neurons_channel, 
+                                                             f_input =cfg.task.f_input, f_background=cfg.task.f_background,
+                                                             t_cue = cfg.task.t_cue, t_cue_spacing = cfg.task.t_cue_spacing, 
+                                                             p=cfg.task.p, input_mode=cfg.task.input_mode, dt=cfg.task.dt)
+        
+
+              recurrent_cos_sim, input_cos_sim, max_recurrent, max_input = test_e_prop_grads(state=state, train_batches=train_batch_test_grad, optimization_loss_fn=closure, LS_avail=cfg.task.LS_avail,
+                                            local_connectivity=model.local_connectivity, f_target=cfg.train_params.f_target, c_reg=cfg.train_params.c_reg,
+                                             task=cfg.task.task_type, shuffle=cfg.train_params.shuffle, shuffle_key=sub_shuffle_key)
+            
+              recurrent_cos_sim_list.append(recurrent_cos_sim)
+              input_cos_sim_list.append(input_cos_sim)
+              max_recurrent_list.append(max_recurrent)
+              max_input_list.append(max_input)
+                    
             # early stop
             if eval_metrics.accuracy > cfg.train_params.stop_criteria:
               accuracy_test = []
@@ -566,5 +656,26 @@ def train_and_evaluate(cfg) -> TrainState:
     fig3.savefig(os.path.join(figures_directory, "example_3"))   
     plt.close(fig3)
 
-def test_func(cfg):
-   print(cfg.task.task_name)
+    if cfg.train_params.test_grads:
+      print("aaaa")
+      grads_fig, axs = plt.subplots(1,2, figsize=(10, 6))
+      print(recurrent_cos_sim_list)
+      axs[0].plot(iterations, recurrent_cos_sim_list, label="Recurrent grads")
+      axs[0].plot(iterations, input_cos_sim_list, label="input grads")
+      axs[0].set_title('Cosine similarity between hardcoded and autodiff e-prop')
+      axs[0].set_ylabel("Degrees")
+      axs[0].set_xlabel('Iterations')
+      axs[0].legend()
+
+
+      print(max_recurrent_list)
+      axs[1].plot(iterations, max_recurrent_list, label="Recurrent grads")
+      axs[1].plot(iterations, max_input_list, label="input grads")
+      axs[1].set_yscale("log")
+      axs[1].set_title('Max difference between hardcoded and autodiff e-prop')
+      axs[1].set_ylabel("Max abosulete difference")
+      axs[1].set_xlabel('Iterations')
+      axs[1].legend()
+      grads_fig.tight_layout()
+      grads_fig.savefig(os.path.join(figures_directory, "grads"))
+      plt.close(grads_fig)
