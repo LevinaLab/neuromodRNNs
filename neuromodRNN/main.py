@@ -7,8 +7,8 @@ from typing import Any, Dict, Tuple, Optional
 import os
 import sys
 import logging
-from jax import config
-
+from jax import config, numpy as jnp
+config.update("jax_enable_x64", True)
 config.update("jax_default_matmul_precision", "float32")
 
 file_dir = str(os.path.dirname(os.path.abspath(__file__)))
@@ -28,6 +28,7 @@ from typing import (
   Tuple,
   Iterable  
  )
+from flax.typing import Dtype
 #from conf.task.tasks_setup import Task
 #from conf.task.tasks_setup import register_configs
 
@@ -64,7 +65,7 @@ class NetworkParams:
     radius:int = 1 # radius of difussion kernel,should probably be kept as one
     input_sparsity: float = 0.1
     readout_sparsity: float = 0.1
-
+    
 @dataclass
 class TrainParams:
     lr: float = 0.001 # learning rate
@@ -78,8 +79,8 @@ class TrainParams:
     c_reg: float = 0.1
     learning_rule:str = 'e_prop_hardcoded'
     shuffle:bool = False # shuffle or not the diffusion grid. Only relevant for diffusion
+    test_grads:bool = False # only used to compare autodiff with hardcoded during training (P.S. it only works appropriately if learning rule is e_prop_autodiff, otherwise BPTT will be performed)
     
- 
     
 @dataclass
 class SaveFiles:

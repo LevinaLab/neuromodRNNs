@@ -7,7 +7,7 @@ from flax import linen as nn
 from flax.linen import initializers
 from flax.linen.module import compact, nowrap
 from optax import losses
-
+import jax
 import sys
 import os
 
@@ -46,7 +46,8 @@ from flax.typing import (
 # This is only necessary for using autodiff. Allows autodiff to use the pseudo-derivative for computing derivative of hidden state with respect to spike 
 @custom_vjp
 def spike(v_scaled, gamma, r):
-    z = jnp.float32(jnp.where(v_scaled > 0, jnp.array(1), jnp.array(0)))
+    
+    z = (jnp.where(v_scaled > 0, jnp.float64(1),jnp.float64(0)))
     return z
 # forwardpass: spike function
 def spike_fwd(v_scaled, gamma, r):
@@ -153,15 +154,15 @@ class ALIFCell(nn.recurrent.RNNCellBase):
     
     
         # initialized parameters for eligibility params (those are the params necessary to compute eligibility trace later)
-        thr = self.variable('eligibility params', 'thr', lambda: jnp.array(self.thr))
-        gamma = self.variable('eligibility params', 'gamma', lambda: jnp.array(self.gamma))
-        alpha = self.variable('eligibility params', 'alpha', lambda: jnp.array(jnp.exp(-self.dt/self.tau_m))) 
-        rho = self.variable('eligibility params', 'rho', lambda: jnp.array(jnp.exp(-self.dt/self.tau_adaptation)))
-        n_rec = self.variable('eligibility params', 'n_rec', lambda: jnp.array(self.n_LIF + self.n_ALIF))
+        thr = self.variable('eligibility params', 'thr', lambda: jnp.array(self.thr, dtype= self.param_dtype))
+        gamma = self.variable('eligibility params', 'gamma', lambda: jnp.array(self.gamma, dtype= self.param_dtype))
+        alpha = self.variable('eligibility params', 'alpha', lambda: jnp.array(jnp.exp(-self.dt/self.tau_m), dtype= self.param_dtype)) 
+        rho = self.variable('eligibility params', 'rho', lambda: jnp.array(jnp.exp(-self.dt/self.tau_adaptation), dtype= self.param_dtype))
+        n_rec = self.variable('eligibility params', 'n_rec', lambda: jnp.array(self.n_LIF + self.n_ALIF, dtype= self.param_dtype))
         
         def init_betas(beta= self.beta, rho=rho.value, alpha=alpha.value, n_LIF=self.n_LIF, n_ALIF=self.n_ALIF): 
                 """Init betas"""
-                return beta * jnp.concatenate((jnp.zeros(n_LIF), jnp.ones(n_ALIF)))  # notice that for LIFs, beta is 0           
+                return beta * jnp.concatenate((jnp.zeros(n_LIF, dtype= self.param_dtype), jnp.ones(n_ALIF, dtype= self.param_dtype)))  # notice that for LIFs, beta is 0           
                 
 
         # Initialize betas as a fixed variable
@@ -192,7 +193,7 @@ class ALIFCell(nn.recurrent.RNNCellBase):
          
         
         # Initialize diffusion kernel (not used in forward pass)
-        diff_K = self.variable('spatial params', 'diff_K', inits.k_initializer(k=self.k, shape=(self.n_neuromodulators, 1, 2*self.radius+1, 2*self.radius+1)))
+        diff_K = self.variable('spatial params', 'diff_K', inits.k_initializer(k=self.k, shape=(self.n_neuromodulators, 1, 2*self.radius+1, 2*self.radius+1)), dtype= self.param_dtype)
             
         # Initialize weights (in @compact method, the init is done inside of __call__) 
         w_in = self.param(
@@ -237,7 +238,7 @@ class ALIFCell(nn.recurrent.RNNCellBase):
             new_v =  (alpha.value * v +  (1-alpha.value) * ((jnp.dot(local_z, w_rec)) + jnp.dot(x, w_in)) - lax.stop_gradient(v*thr.value)) #important, z and x should have dimension n_b, n_features and w n_features, output dimension
         
         else:
-            new_v =  (alpha.value * v + (1-alpha.value) * ((jnp.dot(z, w_rec)) + jnp.dot(x, w_in)) -  v*thr.value) #important, z and x should have dimension n_b, n_features and w n_features, output dimension
+            new_v =   (alpha.value * v + (1-alpha.value) * ((jnp.dot(z, w_rec)) + jnp.dot(x, w_in)) -  v*thr.value) #important, z and x should have dimension n_b, n_features and w n_features, output dimension
         
         # compute a at time t        
         new_a = rho.value * a + (1-rho.value) * z # for adaptation, z is local and doesn`t need to be stopped even for autodiff e-prop
@@ -246,8 +247,8 @@ class ALIFCell(nn.recurrent.RNNCellBase):
         new_A_thr =   thr.value + new_a * betas.value # compute value of adapted threshold at t+1  
         
         # compute z at time t
-        new_z = no_refractory * spike((new_v-new_A_thr)/thr.value, gamma.value, new_r)  
-
+        new_z = spike((new_v-new_A_thr)/thr.value, gamma.value, new_r)  * no_refractory
+        
 
         
         new_carry =  (new_v, new_a, new_A_thr, new_z, new_r)   
@@ -530,7 +531,7 @@ class LSSN(nn.Module):
     # Others
     dt: float = 1      
     loss: Callable = losses.softmax_cross_entropy   
-    param_dtype: Dtype = jnp.float32 
+    param_dtype: Dtype = jnp.float64
     
     
     @compact
