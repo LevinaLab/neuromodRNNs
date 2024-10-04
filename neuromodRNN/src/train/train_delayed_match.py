@@ -159,6 +159,7 @@ def compute_metrics(*, labels: Array, logits: Array) -> Metrics:
 
   # softmax_cross_entropy expects labels to be one-hot encoded 
   loss = losses.softmax_cross_entropy(labels=labels, logits=logits)   
+  loss = jnp.mean(loss, axis=-1) # average over time --> the average over batches is done in normalize_batch_metrics
   inference = jnp.argmax(jnp.sum(logits, axis=1), axis=-1) #  jnp.argmax(jnp.sum(logits, axis=1), axis=-1) # sum the the output overtime, generate cummulative evidence. Select the one with higher evidence. (n_batches,)
   label = jnp.argmax(labels[:,0,:], axis=-1) # labels are same for every time step in the task
   binary_accuracy = jnp.equal(inference, label) 
@@ -237,7 +238,7 @@ def train_epoch(
         state, metrics, grads = train_step_fn(state=state, batch=batch, optimization_loss_fn=optimization_loss_fn,
                                         LS_avail=LS_avail, local_connectivity=local_connectivity, f_target=f_target,
                                           c_reg=c_reg, learning_rule=learning_rule, task=task,
-                                          shuffle=shuffle, key=shuffle_key)
+                                          shuffle=shuffle, shuffle_key=shuffle_key)
         batch_metrics.append(metrics)
         accumulated_grads = jax.tree_map(lambda a, g: a + g, accumulated_grads, grads) # this is only for plotting, the update is accumulated already using Optax.MultiSteps
     # Compute the metrics for this epoch.
@@ -303,7 +304,7 @@ def train_and_evaluate(
     The final train state that includes the trained parameters.
     """
 
-    n_in = 3 * cfg.net_arch.n_neurons_channel
+    n_in = 4 * cfg.net_arch.n_neurons_channel
 
     
     # split keys
@@ -312,7 +313,8 @@ def train_and_evaluate(
     
     # Create model and a state that contains the parameters. 
     model = model_from_config(cfg)
-    state = create_train_state(state_key, cfg.train_params.lr, model, input_shape=(cfg.train_params.train_mini_batch_size, n_in), batch_size=cfg.train_params.train_batch_size, mini_batch_size=cfg.train_params.train_mini_batch_size)  
+    state = create_train_state(state_key, cfg.train_params.lr, model, input_shape=(cfg.train_params.train_mini_batch_size, n_in), batch_size=cfg.train_params.train_batch_size, 
+                               mini_batch_size=cfg.train_params.train_mini_batch_size)  
 
     # For plotting
     loss_training = []
@@ -351,11 +353,11 @@ def train_and_evaluate(
                                                              f_background=cfg.task.f_background, f_input=cfg.task.f_input,
                                                              p = cfg.task.p, fixation_time=cfg.task.fixation_time, 
                                                              cue_time=cfg.task.cue_time,  delay_time=cfg.task.delay_time,
-                                                             seed = cfg.task.seed ))
-    
+                                                             decision_time=cfg.task.decision_time, seed = cfg.task.seed ))
+    train_task_seeds = random.randint(random.PRNGKey(cfg.task.seed), (cfg.train_params.iterations,), 10000, 10000000)    
 # Main training loop.
     logger.info('Starting training...')
-    for epoch in range(1, cfg.train_params.iterations+1): # change size of loop
+    for epoch, train_seed in zip(range(1, cfg.train_params.iterations+1), train_task_seeds): # change size of loop
         
         sub_shuffle_key, shuffle_key = random.split(shuffle_key) # splits key to get new one every batch
         
@@ -365,7 +367,7 @@ def train_and_evaluate(
                                                              f_background=cfg.task.f_background, f_input=cfg.task.f_input,
                                                              p = cfg.task.p, fixation_time=cfg.task.fixation_time, 
                                                              cue_time=cfg.task.cue_time,  delay_time=cfg.task.delay_time,
-                                                             seed = cfg.task.seed)
+                                                             decision_time=cfg.task.decision_time, seed = train_seed.item())
         
         # Train for one epoch. 
         logger.info("\t Starting Epoch:{} ".format(epoch))     
@@ -398,7 +400,7 @@ def train_and_evaluate(
                                                              f_background=cfg.task.f_background, f_input=cfg.task.f_input,
                                                              p = cfg.task.p, fixation_time=cfg.task.fixation_time, 
                                                              cue_time=cfg.task.cue_time,  delay_time=cfg.task.delay_time,
-                                                             seed = cfg.task.seed )
+                                                             decision_time=cfg.task.decision_time, seed = cfg.task.seed +i )
                 test_metrics = evaluate_model(eval_step_fn, state, test_batch, epoch, LS_avail=cfg.task.LS_avail)  
                 if test_metrics.accuracy < cfg.train_params.stop_criteria:
                    break

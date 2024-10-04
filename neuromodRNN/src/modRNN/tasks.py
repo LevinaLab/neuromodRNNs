@@ -12,7 +12,7 @@ from typing import (
 
 
 def delayed_match_task(n_batches:int,batch_size:int,n_population:int=10, f_background:float = 10., f_input:float = 40., p:float=0.5, seed:Union[None,int]=None, 
-                       fixation_time:int=50, cue_time:int=150, delay_time:int=750  ):
+                       fixation_time:int=50, cue_time:int=150, delay_time:int=350, decision_time:int=150  ):
     """
     Generates batches of data for a delayed match-to-sample task.
     
@@ -47,7 +47,7 @@ def delayed_match_task(n_batches:int,batch_size:int,n_population:int=10, f_backg
     cue_time: int
         Duration of each cue period in ms. Default is 150 ms.
     delay_time: int
-        Duration of the delay period in ms. Default is 750ms.
+        Duration of the delay period in ms. Default is 350ms.
 
     Yields
     dict: A dictionary containing:
@@ -61,7 +61,7 @@ def delayed_match_task(n_batches:int,batch_size:int,n_population:int=10, f_backg
 
     
   
-    trial_dur = fixation_time + 2*cue_time + delay_time
+    trial_dur = fixation_time + 2*cue_time + 2 * delay_time + decision_time
     f_background = f_background / 1000 # assumes that firing rate was given in Hz
     f_input = f_input / 1000 # assumes that firing rate was given in Hz
     
@@ -90,9 +90,15 @@ def delayed_match_task(n_batches:int,batch_size:int,n_population:int=10, f_backg
     input_2_channel = np.zeros(input_shape)
     idx_2 = np.where(cues_labels[:, 1]== 1)[0]  # get batches where second cue is 1  
     n_trials_second_on = np.sum(cues_labels[:,1]) 
-    input_2_channel[idx_2,-cue_time:, :] = rng.uniform(size=(n_trials_second_on,cue_time, n_population)) < (f_input)
+    input_2_channel[idx_2, fixation_time+cue_time+delay_time:fixation_time+2*cue_time+delay_time, :] = rng.uniform(size=(n_trials_second_on,cue_time, n_population)) < (f_input)
     
-    inputs = np.concatenate((back_ground_channel, input_1_channel, input_2_channel), axis=2).astype(float)
+    
+    # channel coding for decision time
+    decision_time_channel = np.zeros(input_shape)
+    decision_time_channel[:, -decision_time:] = (rng.uniform(size=(n_batches,decision_time,n_population )) < (f_input))
+    
+    
+    inputs = np.concatenate((back_ground_channel, decision_time_channel, input_1_channel, input_2_channel), axis=2).astype(float)
     
     
     # get labels

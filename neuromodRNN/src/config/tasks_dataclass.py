@@ -37,13 +37,14 @@ class CueAccumulation(Task):
 class DelayedMatch(Task):
     task_name: str = "delayed_match"
     task_type: str = "classification"
-    LS_avail: int = 1    
+    LS_avail: int = 150    
     seed: Optional[int] = None
     f_input: float = 40.
     f_background: float = 10.
     fixation_time: int = 50
     cue_time: int = 150
-    delay_time: int=750 
+    delay_time: int=350 
+    decision_time: int=150
     p: float = 0.5
     
 

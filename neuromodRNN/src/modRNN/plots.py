@@ -79,10 +79,10 @@ def plot_delayed_match_inputs(neuron_spikes:Array, n_population:int = 10, ax =No
     
     ax.set_title("Inputs rasterplot")
  
-    input_channels = 3
-    y_ticks = ["noise", "1st cue", "2nd cue"]
-    first_anchor =  offset_constant + 0.3
-    second_anchor = 2 * offset_constant + 0.3
+    input_channels = 4
+    y_ticks = ["noise", "decision cue", "1st cue", "2nd cue"]
+    first_anchor =  2 * offset_constant + 0.3
+    second_anchor = 3 * offset_constant + 0.3
 
 
     
