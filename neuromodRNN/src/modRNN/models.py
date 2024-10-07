@@ -235,7 +235,7 @@ class ALIFCell(nn.recurrent.RNNCellBase):
             # the reset term in the approximated grads, thus also blocking here.
 
             local_z = lax.stop_gradient(z) # use for gradients that are not considered in e-prop: spike propagation and reset term
-            new_v =  (alpha.value * v +  (1-alpha.value) * ((jnp.dot(local_z, w_rec)) + jnp.dot(x, w_in)) - lax.stop_gradient(v*thr.value)) #important, z and x should have dimension n_b, n_features and w n_features, output dimension
+            new_v =  (alpha.value * v +  (1-alpha.value) * ((jnp.dot(local_z, w_rec)) + jnp.dot(x, w_in)) - lax.stop_gradient(z*thr.value)) #important, z and x should have dimension n_b, n_features and w n_features, output dimension
         
         else:
             new_v =   (alpha.value * v + (1-alpha.value) * ((jnp.dot(z, w_rec)) + jnp.dot(x, w_in)) -  v*thr.value) #important, z and x should have dimension n_b, n_features and w n_features, output dimension
@@ -382,7 +382,7 @@ class ReadOut(nn.recurrent.RNNCellBase):
         # Forward pass - real valued leaky output neurons (output new y, or equivalently to new mebrane voltage)
         y = carry  # unpack the hidden state: for readout it is only the output at previous step (basically the membrane potential, but kept as y for consistency with paper nomenclature)
 
-        new_y = kappa.value * y +  (1-kappa.value) * jnp.dot(z, w_out)  #TODO: implement bias
+        new_y = kappa.value * y +  (1 - kappa.value) * jnp.dot(z, w_out)  #TODO: implement bias #(1-kappa.value) *
                     
         return new_y, new_y    
         
