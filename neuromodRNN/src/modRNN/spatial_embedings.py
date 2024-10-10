@@ -73,7 +73,7 @@ def cell_to_twod_grid(w:int, h:int, n_cells:int, key:PRNGKey):
 
 # 2D matrix
 def sq_distance(x1:float, y1:float, x2:float, y2:float): 
-    """Compute the Manhattan distance between two points given their coordinates x1,y1 and x2,y2. Note that distances are computed in a torus (circular borders)"""
+    """Compute the Squared Euclidean distance between two points given their coordinates x1,y1 and x2,y2. Note that distances are computed in a torus (circular borders)"""
     dx = jnp.abs(x2 - x1)
     dy = jnp.abs(y2 - y1)
  
