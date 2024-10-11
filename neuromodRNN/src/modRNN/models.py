@@ -85,7 +85,7 @@ class ALIFCell(nn.recurrent.RNNCellBase):
     # net_arch
     n_ALIF: int = 3 # Number of adaptive neurons ALIF.
     n_LIF: int = 3 # Number of standard LIF neurons.
-    local_connectivity: bool = True # If or not the recurrent layer presents local connection pattern.
+    connectivity_rec_layer: str = "local" # If or not the recurrent layer presents local connection pattern.
     sigma: float = 0.012 # controls probability of connection in the local connective mode according to distance between neurons.       
     gridshape: Tuple[int, int] = (10, 10) # (h,w) height(n_rows), width (n_cols) of 2D grid used for embedding of recurrent layer.
     n_neuromodulators: int =1 # number of neuromodulators.
@@ -481,7 +481,8 @@ class LSSN(nn.Module):
     sigma: float = 0.012 # controls probability of connection in the local connective mode according to distance between neurons.  
     gridshape: Tuple[int, int] = (10, 10) # (w,h) width (n_cols) and height(n_rows) of 2D grid used for embedding of recurrent layer.
     n_neuromodulators: int =1 # number of neuromodulators.
-    sparse_connectivity: bool = False # if recurrent network is sparsely connected to readout
+    sparse_input: bool = False # if recurrent network is sparsely connected to external inputs
+    sparse_output: bool = False # if recurrent network is sparsely connected to readout
     
     # ALIF params
     thr: float = 0.6 # Base firing threshold for neurons.
@@ -557,7 +558,7 @@ class LSSN(nn.Module):
         """
         
         # Define the layers (nn.RNN does the scan over time)
-        recurrent = nn.RNN(ALIFCell(n_ALIF=self.n_ALIF, n_LIF=self.n_LIF, local_connectivity=self.local_connectivity,sparse_connectivity=self.sparse_connectivity, sigma = self.sigma,
+        recurrent = nn.RNN(ALIFCell(n_ALIF=self.n_ALIF, n_LIF=self.n_LIF, local_connectivity=self.local_connectivity,sparse_connectivity=self.sparse_input, sigma = self.sigma,
                                     gridshape= self.gridshape, n_neuromodulators=self.n_neuromodulators, thr=self.thr, tau_m=self.tau_m, tau_adaptation=self.tau_adaptation,
                                     beta = self.beta, gamma = self.gamma, refractory_period = self.refractory_period, k=self.k, radius=self.radius, learning_rule=self.learning_rule, input_sparsity=self.input_sparsity,
                                     v_init = self.v_init, a_init=self.a_init, A_thr_init=self.A_thr_init, z_init=self.z_init, r_init=self.r_init, weights_init = self.ALIF_weights_init,
@@ -565,7 +566,7 @@ class LSSN(nn.Module):
                                     diff_kernel_seed=self.diff_kernel_seed, input_sparsity_seed=self.input_sparsity_seed, dt=self.dt, param_dtype=self.param_dtype), variable_broadcast=("params", 'eligibility params', 'spatial params'), name="Recurrent"
         )
         
-        readout = nn.RNN(ReadOut(n_out=self.n_out, sparse_connectivity=self.sparse_connectivity, b_out=self.b_out, tau_out=self.tau_out, feedback = self.feedback, sparsity=self.readout_sparsity, 
+        readout = nn.RNN(ReadOut(n_out=self.n_out, sparse_connectivity=self.sparse_readout, b_out=self.b_out, tau_out=self.tau_out, feedback = self.feedback, sparsity=self.readout_sparsity, 
                                  carry_init= self.out_carry_init, weights_init= self.ReadOut_weights_init,
                                  feedback_init = self.feedback_init, gain = (self.gain[2], self.gain[3]), 
                                  FeedBack_seed=self.FeedBack_seed, sparsity_seed=self.readout_sparsity_seed, dt = self.dt, param_dtype=self.param_dtype), variable_broadcast=("params",'eligibility params', 'spatial params'), name="ReadOut"

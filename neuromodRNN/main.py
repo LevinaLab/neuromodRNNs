@@ -36,7 +36,7 @@ from flax.typing import Dtype
 
 @dataclass
 class NetworkArchitecture:
-    n_neurons_channel: int = 20 
+    n_neurons_channel: int = 10 
     n_ALIF: int = 50
     n_LIF: int = 50
     n_out: int = 2
@@ -45,12 +45,13 @@ class NetworkArchitecture:
     feedback: str = "Symmetric"
     gridshape: Tuple[int, int] = (10, 10)
     n_neuromodulators: int =1
-    sparse_connectivity: bool = False
+    sparse_input: bool = True
+    sparse_readout: bool = True
 
 
 @dataclass
 class NetworkParams:
-    thr: float = 0.030
+    thr: float = 0.03
     tau_m: float = 20
     tau_out: float = 20
     tau_adaptation: float = 2000
@@ -68,16 +69,16 @@ class NetworkParams:
     
 @dataclass
 class TrainParams:
-    lr: float = 0.0001 # learning rate
+    lr: float = 0.0025 # learning rate
     train_batch_size: int = 64 # how many samples before weight update
     train_mini_batch_size: int = 8 # Due to memory limitations, load subsets of the batch at each time
     test_batch_size: int = 512
     test_mini_batch_size: int = 8 # Due to memory limitations, load subsets of the batch at each time 
     iterations: int = 2000  # how many time steps
-    stop_criteria: float = 0.99
+    stop_criteria: float = 1.0
     f_target:float = 10.
     c_reg: float = 0.1
-    learning_rule:str = 'e_prop_autodiff'
+    learning_rule:str = 'e_prop_hardcoded'
     shuffle:bool = False # shuffle or not the diffusion grid. Only relevant for diffusion
     test_grads:bool = False # only used to compare autodiff with hardcoded during training (P.S. it only works appropriately if learning rule is e_prop_autodiff, otherwise BPTT will be performed)
     

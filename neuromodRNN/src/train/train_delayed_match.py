@@ -38,7 +38,6 @@ Array = jnp.ndarray
 TrainState = train_state.TrainState
 
 
-
 def model_from_config(cfg)-> LSSN:
   """Builds the LSSN model from a config.
   
@@ -46,7 +45,7 @@ def model_from_config(cfg)-> LSSN:
     and it will only work correclty with their default values. Also not passing any of the weight or
     carries init functions but they can be modified after initialization, before training starts. 
   """
-  
+
   # generate different seed buy drawing random large ints
   key = random.PRNGKey(cfg.net_params.seed)
   subkey, key = random.split(key)
@@ -58,7 +57,8 @@ def model_from_config(cfg)-> LSSN:
               sigma = cfg.net_arch.sigma,
               gridshape=cfg.net_arch.gridshape,
               n_neuromodulators=cfg.net_arch.n_neuromodulators,
-              sparse_connectivity=cfg.net_arch.sparse_connectivity,
+              sparse_input=cfg.net_arch.sparse_input,
+              sparse_readout=cfg.net_arch.sparse_readout,
               local_connectivity=cfg.net_arch.local_connectivity,
               thr=cfg.net_params.thr,
               tau_m=cfg.net_params.tau_m,
@@ -80,9 +80,10 @@ def model_from_config(cfg)-> LSSN:
               diff_kernel_seed=diff_kernel_seed,
               cell_loc_seed=cell_loc_seed,                                                
               gain=cfg.net_params.w_init_gain,
-              dt=cfg.net_params.dt,         
+              dt=cfg.net_params.dt                
               )
   return model 
+
 
 def get_initial_params(rng:PRNGKey, model:LSSN, input_shape:Tuple[int,...])->Tuple[Dict[str,Array]]:
   """Returns randomly initialized parameters, eligibility parameters and connectivity mask."""
