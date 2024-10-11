@@ -312,7 +312,7 @@ def feedback_weights_initializer(init_fn: Callable,key:PRNGKey, shape:Tuple[int,
         if feedback == 'Symmetric':
             return weights_out
         elif feedback== 'Random':
-            w = init_fn(key, shape, dtype)
+            w = random.normal(key, shape, dtype)
             return  w * gain * sparsity_mask
         else:
             raise NotImplementedError("The requested feedback mode `{}` has not been implemented yet".format(feedback))
