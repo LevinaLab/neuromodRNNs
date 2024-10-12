@@ -266,7 +266,7 @@ def firing_rate_error(z:Array, trial_length:Array, f_target:float)->Array:
     z = jnp.transpose(z, (1,0,2)) # transpose to (n_batch, n_t, n_rec), since all other functions expect ( n_t, n_batch, n_rec)
     # Not doing online, but using batch average
     firing_rates = compute_firing_rate(z, trial_length) #(n_batches, n_rec)
-    error = (f_target /1000) - firing_rates #  divide by 1000, because all units are in ms, but f_target should be passed in Hz
+    error =  firing_rates - (f_target /1000)  #  divide by 1000, because all units are in ms, but f_target should be passed in Hz
     return error # (n_batches, n_rec)
 
 #############################################################################################
