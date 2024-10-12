@@ -96,8 +96,8 @@ def generalized_initializer(init_fn:Callable, gain:float=1.0, avoid_self_recurre
     return initializer
 
 # So far harcoding the spatial_embeding function. If we want to play around with different ones, need to change it to be an argument of initializer
-def initialize_connectivity_mask(local_connectivity:bool, gridshape:Tuple[int, int], neuron_indices:Array, key:PRNGKey,
-                                  n_rec:int, sigma: float, dtype:Dtype =jnp.float32):
+def initialize_connectivity_mask(connectivity_rec_layer:bool, gridshape:Tuple[int, int], neuron_indices:Array, key:PRNGKey,
+                                  n_rec:int, sigma: float, sparsity:float, dtype:Dtype =jnp.float32):
     """
     Creates a new initializer function for initializing connectivity mask.
 
@@ -134,7 +134,7 @@ def initialize_connectivity_mask(local_connectivity:bool, gridshape:Tuple[int, i
     def initializer(key=key, shape=(n_rec, n_rec), dtype=dtype):
 
         # if local_connectivity True, build mask according to spatial embedding        
-        if local_connectivity:
+        if connectivity_rec_layer=="local":
             
             h, w = gridshape # unpack gridshape, where w is the width (col number) of grid and h is height
             
@@ -156,9 +156,16 @@ def initialize_connectivity_mask(local_connectivity:bool, gridshape:Tuple[int, i
             # for recurrent connection, all cells can be both pre and post depending on the connection, so therefore same locations for pre and post
             return spatial_embedings.twodMatrix(Pre_x=x, Pre_y=y, Post_x=x, Post_y=y, sigma=sigma, key=key)
                                         
-        # If local_connectivivity is False, mask is just ones, so that it does`t change the weights                             
-        else:
+        #                            
+        elif connectivity_rec_layer=="sparse":
+            M = random.bernoulli(key=key, p=sparsity, shape=shape)
+        
+        # If connectivity_rec_layer is Full, mask is just ones, so that it does`t change the weights  
+        elif connectivity_rec_layer=="full":
             return  nn.initializers.ones(key=key, shape=shape, dtype=dtype)
+
+        else:
+            raise NotImplementedError("The requested connectivity pattern'{}' hasn't being implemented. Please provide one of the valid learning rules: 'e_prop_hardcoded', 'e_prop_autodiff', 'diffusion' or 'BPTT'".format(connectivity_rec_layer))
 
     return initializer
 
@@ -202,7 +209,7 @@ def initialize_sparsity_mask(sparse_connectivity:bool, shape:Tuple[int, ...], ke
             mask = jnp.zeros(shape, dtype=dtype)
             
             # Calculate the total number of elements and the number of 1s needed
-            total_elements = shape[0] * shape[1] # it assumes that shap
+            total_elements = shape[0] * shape[1] # it assumes that shape
             num_ones = int(total_elements * sparsity)  # ~ sparsity % of elements should be 1s
 
             # Randomly select indices for the 1s (no replacement, so no position is chosen twice)

@@ -89,7 +89,7 @@ class ALIFCell(nn.recurrent.RNNCellBase):
     sigma: float = 0.012 # controls probability of connection in the local connective mode according to distance between neurons.       
     gridshape: Tuple[int, int] = (10, 10) # (h,w) height(n_rows), width (n_cols) of 2D grid used for embedding of recurrent layer.
     n_neuromodulators: int =1 # number of neuromodulators.
-    sparse_connectivity: bool = True # if recurrent network is sparsely connected to input
+    sparse_input_connectivity: bool = True # if recurrent network is sparsely connected to input
     
     # net_params
     thr: float = 0.6 # Base firing threshold for neurons
@@ -102,7 +102,7 @@ class ALIFCell(nn.recurrent.RNNCellBase):
     radius:int = 1 # radius of difussion kernel,should probably be kept as one.
     learning_rule:str = "e_prop_hardcoded" # indicate which learning rule is being used. Important to block gradients for e_prop_autodiff. For hardcoded versions doesnt affect.
     input_sparsity: float = 0.1 # between 0 and 1, sparsity of input connections (only used if sparse_connectivity is True)
-
+    recurrent_sparsity: float = 0.1 # between 0 and 1, sparsity (percentage of 1s) of input connections (only used if connectivity_rec_layer==sparse) 
 
     # Initializers    
     v_init: Initializer = initializers.zeros_init() # Initializer for recurrent neurons membrane potential at t=0.
@@ -115,7 +115,7 @@ class ALIFCell(nn.recurrent.RNNCellBase):
     
     
     # seeds
-    local_connectivity_seed: int = 0 # seed for initialize RNG used for local_connectivity mask.
+    rec_connectivity_seed: int = 0 # seed for initialize RNG used for local_connectivity mask.
     cell_loc_seed: int = 3 # seed for initialize RNG used for location of cells in the 2D embedding (grid).
     diff_kernel_seed: int = 0 # # seed for initialize RGN for diffusion kernel (not used in the function).
     input_sparsity_seed: int = 3342 # Key for sparsity mask initialization
@@ -177,18 +177,19 @@ class ALIFCell(nn.recurrent.RNNCellBase):
         
         # Initialize recurrent connectivity mask --> local connection or 1s, depending on local_connectivity
         M = self.variable('spatial params', 'M',
-                        inits.initialize_connectivity_mask(local_connectivity=self.local_connectivity,
+                        inits.initialize_connectivity_mask(connectivity_rec_layer=self.connectivity_rec_layer,
                                                             gridshape=self.gridshape,
                                                             neuron_indices=cells_loc.value,
-                                                            key=random.key(self.local_connectivity_seed),
+                                                            key=random.key(self.rec_connectivity_seed),
                                                             n_rec=self.n_LIF + self.n_ALIF,
-                                                            sigma = self.sigma, 
+                                                            sigma = self.sigma,
+                                                            sparsity= self.recurrent_sparsity, 
                                                             dtype = self.param_dtype)
         )
 
         # Initialize input connectivity mask --> mask with desired sparsity, or full of 1s, depending on sparse_connectivity
         input_sparsity_mask = self.variable('spatial params', 'sparse_input',
-                        inits.initialize_sparsity_mask(sparse_connectivity=self.sparse_connectivity, shape=(jnp.shape(x)[-1], self.n_LIF + self.n_ALIF),
+                        inits.initialize_sparsity_mask(sparse_connectivity=self.sparse_input_connectivity, shape=(jnp.shape(x)[-1], self.n_LIF + self.n_ALIF),
                                                        key=random.key(self.input_sparsity_seed),sparsity=self.input_sparsity, dtype = self.param_dtype))                                   
          
         
@@ -235,7 +236,7 @@ class ALIFCell(nn.recurrent.RNNCellBase):
             # the reset term in the approximated grads, thus also blocking here.
 
             local_z = lax.stop_gradient(z) # use for gradients that are not considered in e-prop: spike propagation and reset term
-            new_v =  (alpha.value * v +  (1-alpha.value) * ((jnp.dot(local_z, w_rec)) + jnp.dot(x, w_in)) - lax.stop_gradient(z*thr.value)) #important, z and x should have dimension n_b, n_features and w n_features, output dimension
+            new_v =  (alpha.value * v +  (1-alpha.value) * ((jnp.dot(local_z, w_rec)) + jnp.dot(x, w_in)) - lax.stop_gradient(v*thr.value)) #important, z and x should have dimension n_b, n_features and w n_features, output dimension
         
         else:
             new_v =   (alpha.value * v + (1-alpha.value) * ((jnp.dot(z, w_rec)) + jnp.dot(x, w_in)) -  v*thr.value) #important, z and x should have dimension n_b, n_features and w n_features, output dimension
@@ -477,12 +478,12 @@ class LSSN(nn.Module):
     n_ALIF: int = 3 # Number of ALIF neurons.
     n_LIF: int = 3 # Number of LIF neurons.
     n_out: int = 2  # Number of output neurons.
-    local_connectivity: bool = True # If or not the recurrent layer presents local connection pattern.
+    connectivity_rec_layer: str = "local" 
     sigma: float = 0.012 # controls probability of connection in the local connective mode according to distance between neurons.  
     gridshape: Tuple[int, int] = (10, 10) # (w,h) width (n_cols) and height(n_rows) of 2D grid used for embedding of recurrent layer.
     n_neuromodulators: int =1 # number of neuromodulators.
     sparse_input: bool = False # if recurrent network is sparsely connected to external inputs
-    sparse_output: bool = False # if recurrent network is sparsely connected to readout
+    sparse_readout: bool = False # if recurrent network is sparsely connected to readout
     
     # ALIF params
     thr: float = 0.6 # Base firing threshold for neurons.
@@ -495,6 +496,7 @@ class LSSN(nn.Module):
     radius:int = 1 # radius of difussion kernel,should probably be kept as one.
     learning_rule:str = "e_prop_hardcoded" # indicate which learning rule is being used. Important to block gradients for e_prop_autodiff. For hardcoded versions doesnt affect.  
     input_sparsity: float = 0.1 # between 0 and 1, sparsity of input connections (only used if sparse_connectivity is True)
+    recurrent_sparsity: float = 0.1 # between 0 and 1, sparsity (percentage of 1s) of input connections (only used if connectivity_rec_layer==sparse) 
 
 
     # Readout params
@@ -523,7 +525,7 @@ class LSSN(nn.Module):
     diff_kernel_init: Initializer = initializers.ones_init()
     
     # seeds
-    local_connectivity_seed: int = 0 # seed for initialize RNG used for local_connectivity mask.
+    rec_connectivity_seed: int = 0 # seed for initialize RNG used for local_connectivity mask.
     cell_loc_seed: int = 3 # seed for initialize RNG used for location of cells in the 2D embedding (grid).
     diff_kernel_seed: int = 0 # seed for initialize RNG for diffusion kernel (not used in the function).
     FeedBack_seed: int = 42 # seed for initialize RNG for Feedback weights.
@@ -558,11 +560,11 @@ class LSSN(nn.Module):
         """
         
         # Define the layers (nn.RNN does the scan over time)
-        recurrent = nn.RNN(ALIFCell(n_ALIF=self.n_ALIF, n_LIF=self.n_LIF, local_connectivity=self.local_connectivity,sparse_connectivity=self.sparse_input, sigma = self.sigma,
+        recurrent = nn.RNN(ALIFCell(n_ALIF=self.n_ALIF, n_LIF=self.n_LIF, connectivity_rec_layer=self.connectivity_rec_layer,sparse_input_connectivity=self.sparse_input, sigma = self.sigma,
                                     gridshape= self.gridshape, n_neuromodulators=self.n_neuromodulators, thr=self.thr, tau_m=self.tau_m, tau_adaptation=self.tau_adaptation,
                                     beta = self.beta, gamma = self.gamma, refractory_period = self.refractory_period, k=self.k, radius=self.radius, learning_rule=self.learning_rule, input_sparsity=self.input_sparsity,
-                                    v_init = self.v_init, a_init=self.a_init, A_thr_init=self.A_thr_init, z_init=self.z_init, r_init=self.r_init, weights_init = self.ALIF_weights_init,
-                                    gain = (self.gain[0], self.gain[1]), local_connectivity_seed= self.local_connectivity_seed, cell_loc_seed= self.cell_loc_seed,
+                                    recurrent_sparsity=self.recurrent_sparsity,v_init = self.v_init, a_init=self.a_init, A_thr_init=self.A_thr_init, z_init=self.z_init, r_init=self.r_init, weights_init = self.ALIF_weights_init,
+                                    gain = (self.gain[0], self.gain[1]), rec_connectivity_seed= self.rec_connectivity_seed, cell_loc_seed= self.cell_loc_seed,
                                     diff_kernel_seed=self.diff_kernel_seed, input_sparsity_seed=self.input_sparsity_seed, dt=self.dt, param_dtype=self.param_dtype), variable_broadcast=("params", 'eligibility params', 'spatial params'), name="Recurrent"
         )
         

@@ -91,12 +91,16 @@ def e_prop_vectorized(batch_init_carries:Tuple[Dict[str,Array], Array],
     # compute task loss gradient
     task_update = jnp.einsum('btri,tbri->ir', jnp.expand_dims(L,axis=3), crop_low_trace)
     
-    
+    # average over batches and time
+    time_decision = jnp.shape(crop_low_trace)[0]
+    n_batch = jnp.shape(crop_low_trace)[1]
+    task_update = task_update /(n_batch * time_decision)
+
 
     # compute firing rate regularization gradient
     acum_eligibility_trace = jnp.sum(eligibility_traces, axis=0) # (n_batches,n_post, n_pre)
-    reg_update = - (c_reg / trial_length[:,None,None]) * f_error[:,:, None] * acum_eligibility_trace # (n_post, n_pre)
-    reg_update = jnp.transpose(jnp.mean(reg_update, axis=0),(1,0))   # (n_pre, n_post)
+    reg_update = (c_reg / trial_length[:,None,None]) * f_error[:,:, None] * acum_eligibility_trace # (n_post, n_pre)
+    reg_update = jnp.transpose(jnp.mean(reg_update, axis=0),(1,0))   # average over batches and transpose(n_pre, n_post)
     return task_update + reg_update
 
 
@@ -130,6 +134,7 @@ def e_prop_online(batch_init_carries:Tuple[Dict[str,Array], Array],
     y_batch = jnp.transpose(y_batch, (1,0,2)) # time need to be leading axis (n_t,n_b, n_out)
     true_y_batch = jnp.transpose(true_y_batch, (1,0,2)) # time need to be leading axis (n_t,n_b, n_out)
     
+
     def one_step_gradient(eligibility_carries, inputs, eligibility_params):
         y_batch_step, true_y_batch_step, eligibility_input_step = inputs
         task_error = learning_utils.error_signal(y=y_batch_step, true_y=true_y_batch_step) #(n_b, n_out)
@@ -140,8 +145,10 @@ def e_prop_online(batch_init_carries:Tuple[Dict[str,Array], Array],
         
         new_eligibility_carries['low_pass_eligibility_trace'], low_pass_trace = learning_utils.batched_low_pass_eligibility_trace(new_eligibility_carries['low_pass_eligibility_trace'],eligibility_trace,eligibility_params)
         
-        task_update = jnp.einsum('bri,bri->ir', jnp.expand_dims(L,axis=2), low_pass_trace) #n_pre, n_post
-        reg_update = - (c_reg/trial_length[:,None,None]) * f_error[:,:,None] * eligibility_trace # n_post, n_pre
+        task_update = jnp.einsum('bri,bri->ir', jnp.expand_dims(L,axis=2), low_pass_trace) #n_pre, n_post        
+        
+
+        reg_update = + (c_reg/trial_length[:,None,None]) * f_error[:,:,None] * eligibility_trace # n_post, n_pre
         reg_update = jnp.transpose(jnp.mean(reg_update, axis=0),(1,0)) # mean over batches and transpose to have shape of weights n_pre, n_post
         return new_eligibility_carries, (task_update,reg_update)
     
@@ -153,8 +160,16 @@ def e_prop_online(batch_init_carries:Tuple[Dict[str,Array], Array],
         (y_batch, true_y_batch,eligibility_input )
     )
     task_updates, reg_updates = updates
+
+    # average over batches
+    n_batch = jnp.shape(f_error)[0]
+    task_updates = task_updates / n_batch
     
-    return jnp.sum(task_updates[-LS_avail:,:,:], axis=0) + jnp.sum(reg_updates, axis=0)
+    # if classication task, average over time
+    task_update = jnp.mean(task_updates[-LS_avail:,:,:], axis=0)
+    
+
+    return task_update + jnp.sum(reg_updates, axis=0)
 
 
 
@@ -241,7 +256,7 @@ def neuromod_online(batch_init_carries:Tuple[Dict[str,Array], Array],
         
         new_eligibility_carries['low_pass_eligibility_trace'], low_pass_trace = learning_utils.batched_low_pass_eligibility_trace(new_eligibility_carries['low_pass_eligibility_trace'],eligibility_trace,eligibility_params)
         task_update = jnp.einsum('bri,bri->ir', jnp.expand_dims(L,axis=2), low_pass_trace) #n_pre, n_post
-        reg_update = - (c_reg/trial_length[:,None,None]) * f_error[:,:,None] * eligibility_trace # n_post, n_pre
+        reg_update =  (c_reg/trial_length[:,None,None]) * f_error[:,:,None] * eligibility_trace # n_post, n_pre
         reg_update = jnp.transpose(jnp.mean(reg_update, axis=0),(1,0)) # mean over batches and transpose to have shape of weights n_pre, n_post
         return (new_eligibility_carries, new_error_grid), (task_update,reg_update)
     
@@ -255,9 +270,16 @@ def neuromod_online(batch_init_carries:Tuple[Dict[str,Array], Array],
 
     # unpack different type of updates
     task_updates, reg_updates = updates
+
+    # average over batches
+    n_batch = jnp.shape(f_error)[0]
+    task_updates = task_updates / n_batch
+
+    # average over time
+    task_update = jnp.mean(task_updates[-LS_avail:,:,:], axis=0)    
+    return task_update + jnp.sum(reg_updates, axis=0)
     
-    return jnp.sum(task_updates[-LS_avail:,:,:], axis=0) + jnp.sum(reg_updates, axis=0) # task regularization only available from LS_avail onwards, firing_rate_reg available every moment
-    
+
     
 
 
@@ -305,6 +327,12 @@ def output_grads(batch_init_carries: Dict[str,Array], batch_inputs: Tuple[Array,
     
     # perform element-wise multiplication and sum over batches and time dimensions    
     grads = jnp.einsum('btor,tbor->ro', jnp.expand_dims(err,3), jnp.expand_dims(crop_trace,2)) # weights have shape (pre, post), so grad should have same shape --> ro)
+    
+    # average over batches and time
+    time_decision = jnp.shape(crop_trace)[0]
+    n_batch = jnp.shape(crop_trace)[1]
+    grads = grads /(n_batch * time_decision)
+    
     return grads
 
 def autodiff_grads(batch,state, optimization_loss_fn,LS_avail, c_reg, f_target):
@@ -331,7 +359,7 @@ def autodiff_grads(batch,state, optimization_loss_fn,LS_avail, c_reg, f_target):
 
 
 def compute_grads(batch:Dict[str, Array], state,optimization_loss_fn:Callable, LS_avail: int, 
-                  local_connectivity: bool, f_target:float, c_reg:float, learning_rule:str, task:str,
+                  f_target:float, c_reg:float, learning_rule:str, task:str,
                   shuffle:bool, key:PRNGKey) ->Dict[str, Dict]:
     """
     Compute grads according to chosen learning rule.
@@ -398,8 +426,6 @@ def compute_grads(batch:Dict[str, Array], state,optimization_loss_fn:Callable, L
         operating with jax autodiff
     LS_avail: int
         Time step from which learning signal is available in the task
-    local_connectivity: bool
-        True if network has local connectivity
     f_target: float
         Target firing frequency of firing rate regularization loss
     c_reg: float
@@ -439,8 +465,7 @@ def compute_grads(batch:Dict[str, Array], state,optimization_loss_fn:Callable, L
         identity = jnp.eye(n_rec, dtype=grads['ALIFCell_0']['recurrent_weights'].dtype)
         grads['ALIFCell_0']['recurrent_weights'] = grads['ALIFCell_0']['recurrent_weights'] * (jnp.array(1) - identity) # guarantee that no self recurrence is learned
         # Guarantee that local connectivity is kept (otherwise, e-prop will lead to growth of new synapses)
-        if local_connectivity:
-            grads['ALIFCell_0']['recurrent_weights'] *= state.spatial_params['ALIFCell_0']['M']
+        grads['ALIFCell_0']['recurrent_weights'] *= state.spatial_params['ALIFCell_0']['M']
         
         # Guarantee readout sparsity is kept        
         grads['ReadOut_0']['readout_weights'] *= state.spatial_params['ReadOut_0']['sparse_readout']
@@ -527,8 +552,7 @@ def compute_grads(batch:Dict[str, Array], state,optimization_loss_fn:Callable, L
         grads['ALIFCell_0']['recurrent_weights'] = grads['ALIFCell_0']['recurrent_weights'] * (jnp.array(1) - identity) # guarantee that no self recurrence is learned 
         
         # Guarantee that local connectivity is kept (otherwise, e-prop will lead to growth of new synapses)
-        if local_connectivity:
-            grads['ALIFCell_0']['recurrent_weights'] *= state.spatial_params['ALIFCell_0']['M']
+        grads['ALIFCell_0']['recurrent_weights'] *= state.spatial_params['ALIFCell_0']['M']
             
         
 

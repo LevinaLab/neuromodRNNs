@@ -40,7 +40,7 @@ class NetworkArchitecture:
     n_ALIF: int = 50
     n_LIF: int = 50
     n_out: int = 2
-    local_connectivity: bool = True
+    connectivity_rec_layer: str = "local"
     sigma: float = 0.012
     feedback: str = "Symmetric"
     gridshape: Tuple[int, int] = (10, 10)
@@ -66,6 +66,7 @@ class NetworkParams:
     radius:int = 1 # radius of difussion kernel,should probably be kept as one
     input_sparsity: float = 0.1
     readout_sparsity: float = 0.1
+    recurrent_sparsity: float = 0.1
     
 @dataclass
 class TrainParams:

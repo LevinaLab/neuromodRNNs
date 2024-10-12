@@ -50,7 +50,7 @@ def model_from_config(cfg)-> LSSN:
   # generate different seed buy drawing random large ints
   key = random.PRNGKey(cfg.net_params.seed)
   subkey, key = random.split(key)
-  feedback_seed,local_connectivity_seed, diff_kernel_seed, cell_loc_seed,input_sparsity_seed, readout_sparsity_seed = random.randint(subkey, (6,),10000, 10000000)
+  feedback_seed,rec_connectivity_seed, diff_kernel_seed, cell_loc_seed,input_sparsity_seed, readout_sparsity_seed = random.randint(subkey, (6,),10000, 10000000)
   # Not passing beta and b_out because are not fully implemented
   model = LSSN(n_ALIF=cfg.net_arch.n_ALIF,
               n_LIF=cfg.net_arch.n_LIF,
@@ -60,7 +60,7 @@ def model_from_config(cfg)-> LSSN:
               n_neuromodulators=cfg.net_arch.n_neuromodulators,
               sparse_input=cfg.net_arch.sparse_input,
               sparse_readout=cfg.net_arch.sparse_readout,
-              local_connectivity=cfg.net_arch.local_connectivity,
+              connectivity_rec_layer=cfg.net_arch.connectivity_rec_layer,
               thr=cfg.net_params.thr,
               tau_m=cfg.net_params.tau_m,
               tau_adaptation=cfg.net_params.tau_adaptation, 
@@ -71,13 +71,14 @@ def model_from_config(cfg)-> LSSN:
               radius=cfg.net_params.radius,     
               input_sparsity= cfg.net_params.input_sparsity,         
               readout_sparsity= cfg.net_params.readout_sparsity,
+              recurrent_sparsity = cfg.net_params.recurrent_sparsity,
               tau_out=cfg.net_params.tau_out,
               feedback=cfg.net_arch.feedback,
               input_sparsity_seed = input_sparsity_seed,
               readout_sparsity_seed = readout_sparsity_seed,                        
               FeedBack_seed=feedback_seed,     
               learning_rule=cfg.train_params.learning_rule,
-              local_connectivity_seed= local_connectivity_seed,
+              rec_connectivity_seed= rec_connectivity_seed,
               diff_kernel_seed=diff_kernel_seed,
               cell_loc_seed=cell_loc_seed,                                                
               gain=cfg.net_params.w_init_gain,
@@ -138,7 +139,7 @@ def optimization_loss(logits, labels, z, c_reg, f_target, trial_length):
         2. labels are assumed to be one-hot encoded
   """
   # notice that optimization_loss is only called inside of learning_rules.compute_grads, and labels are already passed there as one-hot code and y is already softmax transformed
-  task_loss = jnp.sum(losses.softmax_cross_entropy(logits=logits, labels=labels) ) # sum over batches and time --> it accumulates gradients, but in additively way (should not normalize batches)
+  task_loss = jnp.mean(losses.softmax_cross_entropy(logits=logits, labels=labels) ) # sum over batches and time --> it accumulates gradients, but in additively way (should not normalize batches)
   
   av_f_rate = learning_utils.compute_firing_rate(z=z, trial_length=trial_length)
   f_target = f_target / 1000 # f_target is given in Hz, bu av_f_rate is spikes/ms --> Bellec 2020 used the f_reg also in spikes/ms
@@ -216,7 +217,6 @@ def test_e_prop_grads( state: TrainState,
     train_batches: Dict[str, Array], 
     optimization_loss_fn: Callable,  
     LS_avail: int,     
-    local_connectivity: bool,
     f_target: float,
     c_reg: float,
     task: str,
@@ -229,7 +229,7 @@ def test_e_prop_grads( state: TrainState,
     for batch_idx, batch in enumerate(train_batches):
       print("bb")
       _, autodiff_grads = learning_rules.compute_grads(batch=batch, state=state, optimization_loss_fn=optimization_loss_fn, 
-                                         LS_avail=LS_avail, local_connectivity=local_connectivity, f_target=f_target, 
+                                         LS_avail=LS_avail, f_target=f_target, 
                                          c_reg=c_reg, learning_rule="e_prop_autodiff",
                                          task=task, shuffle=shuffle, key=shuffle_key)
       mask = jnp.where(autodiff_grads['ALIFCell_0']['recurrent_weights']!=0.)
@@ -237,7 +237,7 @@ def test_e_prop_grads( state: TrainState,
       accumulated_autodiff_grads = jax.tree_map(lambda a, g: a + g, accumulated_autodiff_grads, autodiff_grads)
     
       _, hardcoded_grads = learning_rules.compute_grads(batch=batch, state=state, optimization_loss_fn=optimization_loss_fn, 
-                                        LS_avail=LS_avail, local_connectivity=local_connectivity, f_target=f_target, 
+                                        LS_avail=LS_avail, f_target=f_target, 
                                         c_reg=c_reg, learning_rule="e_prop_hardcoded",
                                         task=task, shuffle=shuffle, key=shuffle_key)
       accumulated_hardcoded_grads = jax.tree_map(lambda a, g: a + g, accumulated_hardcoded_grads, hardcoded_grads)
@@ -267,7 +267,6 @@ def train_step(
     batch: Dict[str, Array], 
     optimization_loss_fn: Callable,  
     LS_avail: int,     
-    local_connectivity: bool,
     f_target: float,
     c_reg: float,
     learning_rule: str,
@@ -281,7 +280,7 @@ def train_step(
        
     #  Passing LS_avail will guarantee that it is only available during the last LS_avail    
     y, grads = learning_rules.compute_grads(batch=batch, state=state, optimization_loss_fn=optimization_loss_fn, 
-                                         LS_avail=LS_avail, local_connectivity=local_connectivity, f_target=f_target, 
+                                         LS_avail=LS_avail, f_target=f_target, 
                                          c_reg=c_reg, learning_rule=learning_rule,
                                          task=task, shuffle=shuffle, key=shuffle_key)
     
@@ -299,7 +298,6 @@ def train_epoch(
     epoch: int,
     optimization_loss_fn: Callable,
     LS_avail: int,
-    local_connectivity: bool,
     f_target: float,
     c_reg: float, 
     learning_rule: str,
@@ -313,7 +311,7 @@ def train_epoch(
     accumulated_grads = jax.tree_map(lambda x: jnp.zeros_like(x), state.params)
     for batch_idx, batch in enumerate(train_batches):
         state, metrics, grads = train_step_fn(state=state, batch=batch, optimization_loss_fn=optimization_loss_fn,
-                                        LS_avail=LS_avail, local_connectivity=local_connectivity, f_target=f_target,
+                                        LS_avail=LS_avail, f_target=f_target,
                                           c_reg=c_reg, learning_rule=learning_rule, task=task, 
                                           shuffle=shuffle, shuffle_key=shuffle_key)        
         batch_metrics.append(metrics)
@@ -408,8 +406,7 @@ def train_and_evaluate(cfg) -> TrainState:
        max_recurrent_list = []
        max_input_list = [] 
     # Compile step functions.
-    train_step_fn = jax.jit(train_step, static_argnames=["LS_avail", "local_connectivity", 
-                                                         "learning_rule", "task", "shuffle"])
+    train_step_fn = jax.jit(train_step, static_argnames=["LS_avail", "learning_rule", "task", "shuffle"])
     eval_step_fn = jax.jit(eval_step, static_argnames=["LS_avail"])
     
     # this is a trick to pass a Callable as argument of jitted function
@@ -461,7 +458,7 @@ def train_and_evaluate(cfg) -> TrainState:
         # Train for one epoch. 
         logger.info("\t Starting Epoch:{} ".format(epoch))     
         state, train_metrics, accumulated_grads = train_epoch(train_step_fn=train_step_fn, state=state, train_batches=train_batch, epoch=epoch, optimization_loss_fn=closure, LS_avail=cfg.task.LS_avail,
-                                            local_connectivity=model.local_connectivity, f_target=cfg.train_params.f_target, c_reg=cfg.train_params.c_reg,
+                                            f_target=cfg.train_params.f_target, c_reg=cfg.train_params.c_reg,
                                             learning_rule=cfg.train_params.learning_rule, task=cfg.task.task_type,
                                             shuffle=cfg.train_params.shuffle, shuffle_key=sub_shuffle_key)
        
@@ -487,7 +484,7 @@ def train_and_evaluate(cfg) -> TrainState:
         
 
               recurrent_cos_sim, input_cos_sim, max_recurrent, max_input = test_e_prop_grads(state=state, train_batches=train_batch_test_grad, optimization_loss_fn=closure, LS_avail=cfg.task.LS_avail,
-                                            local_connectivity=model.local_connectivity, f_target=cfg.train_params.f_target, c_reg=cfg.train_params.c_reg,
+                                             f_target=cfg.train_params.f_target, c_reg=cfg.train_params.c_reg,
                                              task=cfg.task.task_type, shuffle=cfg.train_params.shuffle, shuffle_key=sub_shuffle_key)
             
               recurrent_cos_sim_list.append(recurrent_cos_sim)
