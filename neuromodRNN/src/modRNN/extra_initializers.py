@@ -159,7 +159,7 @@ def initialize_connectivity_mask(connectivity_rec_layer:bool, gridshape:Tuple[in
         #                            
         elif connectivity_rec_layer=="sparse":
             M = random.bernoulli(key=key, p=sparsity, shape=shape)
-        
+            return M
         # If connectivity_rec_layer is Full, mask is just ones, so that it does`t change the weights  
         elif connectivity_rec_layer=="full":
             return  nn.initializers.ones(key=key, shape=shape, dtype=dtype)
