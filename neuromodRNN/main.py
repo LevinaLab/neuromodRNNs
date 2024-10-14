@@ -51,11 +51,11 @@ class NetworkArchitecture:
 
 @dataclass
 class NetworkParams:
-    thr: float = 0.03
+    thr: float = 0.6
     tau_m: float = 20
     tau_out: float = 20
     tau_adaptation: float = 2000
-    beta: float = 1.8
+    beta: float = 0.018
     bias_out: float = 0.0
     gamma: float = 0.3
     refractory_period: int = 5
@@ -70,7 +70,7 @@ class NetworkParams:
     
 @dataclass
 class TrainParams:
-    lr: float = 0.0025 # learning rate
+    lr: float = 0.0050 # learning rate
     train_batch_size: int = 64 # how many samples before weight update
     train_mini_batch_size: int = 8 # Due to memory limitations, load subsets of the batch at each time
     test_batch_size: int = 512
@@ -78,7 +78,7 @@ class TrainParams:
     iterations: int = 2000  # how many time steps
     stop_criteria: float = 1.0
     f_target:float = 10.
-    c_reg: float = 0.1
+    c_reg: float = 1.0
     learning_rule:str = 'e_prop_hardcoded'
     shuffle:bool = False # shuffle or not the diffusion grid. Only relevant for diffusion
     test_grads:bool = False # only used to compare autodiff with hardcoded during training (P.S. it only works appropriately if learning rule is e_prop_autodiff, otherwise BPTT will be performed)

@@ -466,7 +466,8 @@ def compute_grads(batch:Dict[str, Array], state,optimization_loss_fn:Callable, L
         grads['ALIFCell_0']['recurrent_weights'] = grads['ALIFCell_0']['recurrent_weights'] * (jnp.array(1) - identity) # guarantee that no self recurrence is learned
         # Guarantee that local connectivity is kept (otherwise, e-prop will lead to growth of new synapses)
         grads['ALIFCell_0']['recurrent_weights'] *= state.spatial_params['ALIFCell_0']['M']
-        
+        jax.debug.print("Non zero grads: {}", jnp.where(grads['ALIFCell_0']['recurrent_weights'] !=0,1,0).sum())
+        jax.debug.print("M: {}", jnp.where(state.spatial_params['ALIFCell_0']['M']!=0,1,0).sum()/100)
         # Guarantee readout sparsity is kept        
         grads['ReadOut_0']['readout_weights'] *= state.spatial_params['ReadOut_0']['sparse_readout']
         return y, grads  
