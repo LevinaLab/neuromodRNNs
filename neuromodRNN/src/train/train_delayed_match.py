@@ -137,7 +137,7 @@ def optimization_loss(logits, labels, z, c_reg, f_target, trial_length):
         2. labels are assumed to be one-hot encoded
   """
   # notice that optimization_loss is only called inside of learning_rules.compute_grads, and labels are already passed there as one-hot code and y is already softmax transformed
-  task_loss = jnp.mean(losses.softmax_cross_entropy(logits=logits, labels=labels) ) # sum over batches and time
+  task_loss = jnp.sum(losses.softmax_cross_entropy(logits=logits, labels=labels) ) # sum over batches and time
   
   av_f_rate = learning_utils.compute_firing_rate(z=z, trial_length=trial_length)
   f_target = f_target / 1000 # f_target is given in Hz, bu av_f_rate is spikes/ms --> Bellec 2020 used the f_reg also in spikes/ms

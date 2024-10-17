@@ -135,7 +135,7 @@ def optimization_loss(logits, labels, z, c_reg, f_target, trial_length):
   if labels.ndim==2: # calling labels what normally people call targets in regression tasks
       labels = jnp.expand_dims(labels, axis=-1) # this is necessary because target labels might have only (n_batch, n_t) and predictions (n_batch, n_t, n_out=1)
 
-  task_loss = 0.5 * jnp.mean(losses.squared_error(targets=labels, predictions=logits)) # sum over batches and time --> usually, take average, but biologically is unplausible that updates are averaged across batches, so sum
+  task_loss = 0.5 * jnp.sum(losses.squared_error(targets=labels, predictions=logits)) # sum over batches and time --> usually, take average, but biologically is unplausible that updates are averaged across batches, so sum
     
   av_f_rate = learning_utils.compute_firing_rate(z=z, trial_length=trial_length)
   f_target = f_target / 1000 # f_target is given in Hz, bu av_f_rate is spikes/ms --> Bellec 2020 used the f_reg also in spikes/ms

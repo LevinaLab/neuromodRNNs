@@ -139,7 +139,7 @@ def optimization_loss(logits, labels, z, c_reg, f_target, trial_length):
         2. labels are assumed to be one-hot encoded
   """
   # notice that optimization_loss is only called inside of learning_rules.compute_grads, and labels are already passed there as one-hot code and y is already softmax transformed
-  task_loss = jnp.mean(losses.softmax_cross_entropy(logits=logits, labels=labels) ) # sum over batches and time --> it accumulates gradients, but in additively way (should not normalize batches)
+  task_loss = jnp.sum(losses.softmax_cross_entropy(logits=logits, labels=labels) ) # sum over batches and time --> it accumulates gradients, but in additively way (should not normalize batches)
   
   av_f_rate = learning_utils.compute_firing_rate(z=z, trial_length=trial_length)
   f_target = f_target / 1000 # f_target is given in Hz, bu av_f_rate is spikes/ms --> Bellec 2020 used the f_reg also in spikes/ms
@@ -498,7 +498,7 @@ def train_and_evaluate(cfg) -> TrainState:
               for i in range(3):
                 test_batch = tasks.cue_accumulation_task(n_batches= cfg.train_params.test_batch_size, 
                                                              batch_size=cfg.train_params.test_mini_batch_size, 
-                                                             seed = cfg.task.seed, n_cues=cfg.task.n_cues, min_delay=cfg.task.min_delay,
+                                                             seed = cfg.task.seed+i+1, n_cues=cfg.task.n_cues, min_delay=cfg.task.min_delay,
                                                              max_delay =cfg.task.max_delay, n_population= cfg.net_arch.n_neurons_channel, 
                                                              f_input =cfg.task.f_input, f_background=cfg.task.f_background,
                                                              t_cue = cfg.task.t_cue, t_cue_spacing = cfg.task.t_cue_spacing, 

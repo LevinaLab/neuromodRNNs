@@ -34,7 +34,7 @@ def plot_multiruns(experiment_folder, label, metric_file, ax):
     epochs = np.arange(0, max_epochs * 25, 25)
 
     ax.plot(epochs, mean_loss, label=label)
-    ax.fill_between(epochs, mean_loss - np.sqrt(variance_loss), mean_loss + np.sqrt(variance_loss), alpha=0.2)
+    ax.fill_between(epochs, mean_loss - np.sqrt(variance_loss), mean_loss + np.sqrt(variance_loss), alpha=0.4)
     ax.legend()
 
 
