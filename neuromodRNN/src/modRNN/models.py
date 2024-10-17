@@ -236,7 +236,7 @@ class ALIFCell(nn.recurrent.RNNCellBase):
             # the reset term in the approximated grads, thus also blocking here.
 
             local_z = lax.stop_gradient(z) # use for gradients that are not considered in e-prop: spike propagation and reset term
-            new_v =  (alpha.value * v +  (1-alpha.value) * ((jnp.dot(local_z, w_rec)) + jnp.dot(x, w_in)) - z*thr.value) #important, z and x should have dimension n_b, n_features and w n_features, output dimension
+            new_v =  (alpha.value * v +  (1-alpha.value) * ((jnp.dot(local_z, w_rec)) + jnp.dot(x, w_in)) - lax.stop_gradient(z*thr.value)) #important, z and x should have dimension n_b, n_features and w n_features, output dimension
             
         else:
             new_v =   (alpha.value * v + (1-alpha.value) *  ((jnp.dot(z, w_rec)) + jnp.dot(x, w_in)) - z*thr.value)#important, z and x should have dimension n_b, n_features and w n_features, output dimension
@@ -376,7 +376,7 @@ class ReadOut(nn.recurrent.RNNCellBase):
         B_out = self.variable('eligibility params', 'feedback_weights', inits.feedback_weights_initializer(self.feedback_init,
                                                                                                             random.key(self.FeedBack_seed), 
                                                                                                             (jnp.shape(z)[-1], self.n_out),
-                                                                                                            w_out, sparsity_mask.value, self.feedback, gain=self.gain[1]
+                                                                                                            w_out, self.feedback, gain=self.gain[1]
                                                                                                             )  #n_rec, n_out
         )            
 

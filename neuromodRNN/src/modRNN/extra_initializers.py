@@ -274,7 +274,7 @@ def initialize_neurons_position(gridshape:Tuple[int, int], key: PRNGKey, n_rec: 
 
 
 
-def feedback_weights_initializer(init_fn: Callable,key:PRNGKey, shape:Tuple[int, ...], weights_out: Array, sparsity_mask:Array, feedback: str, gain:float=1.0) -> Callable:
+def feedback_weights_initializer(init_fn: Callable,key:PRNGKey, shape:Tuple[int, ...], weights_out: Array, feedback: str, gain:float=1.0) -> Callable:
     """
     Creates an initializer function for feedback weights based on the specified feedback type.
 
@@ -320,7 +320,7 @@ def feedback_weights_initializer(init_fn: Callable,key:PRNGKey, shape:Tuple[int,
             return weights_out
         elif feedback== 'Random':
             w = random.normal(key, shape, dtype)
-            return  w * gain * sparsity_mask
+            return  w * gain 
         else:
             raise NotImplementedError("The requested feedback mode `{}` has not been implemented yet".format(feedback))
     return initializer
