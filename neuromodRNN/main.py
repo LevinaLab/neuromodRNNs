@@ -51,11 +51,11 @@ class NetworkArchitecture:
 
 @dataclass
 class NetworkParams:
-    thr: float = 0.6
+    thr: float = 0.03
     tau_m: float = 20
     tau_out: float = 20
     tau_adaptation: float = 2000
-    beta: float = 0.018
+    beta: float = 1.8
     bias_out: float = 0.0
     gamma: float = 0.3
     refractory_period: int = 5
@@ -70,8 +70,9 @@ class NetworkParams:
     
 @dataclass
 class TrainParams:
-    lr: float = 0.0050 # learning rate
-    train_batch_size: int = 64 # how many samples before weight update
+    lr: float = 0.0025 # learning rate
+    train_batch_size: int = 64
+    # how many samples before weight update
     train_mini_batch_size: int = 8 # Due to memory limitations, load subsets of the batch at each time
     test_batch_size: int = 512
     test_mini_batch_size: int = 8 # Due to memory limitations, load subsets of the batch at each time 

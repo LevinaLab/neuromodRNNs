@@ -90,11 +90,6 @@ def e_prop_vectorized(batch_init_carries:Tuple[Dict[str,Array], Array],
     
     # compute task loss gradient
     task_update = jnp.einsum('btri,tbri->ir', jnp.expand_dims(L,axis=3), crop_low_trace)
-    
-    # average over batches and time
-    time_decision = jnp.shape(crop_low_trace)[0]
-    n_batch = jnp.shape(crop_low_trace)[1]
-    task_update = task_update /(n_batch * time_decision)
 
 
     # compute firing rate regularization gradient
@@ -159,17 +154,9 @@ def e_prop_online(batch_init_carries:Tuple[Dict[str,Array], Array],
         batch_init_eligibility_carries,
         (y_batch, true_y_batch,eligibility_input )
     )
-    task_updates, reg_updates = updates
+    task_updates, reg_updates = updates    
 
-    # average over batches
-    n_batch = jnp.shape(f_error)[0]
-    task_updates = task_updates / n_batch
-    
-    # if classication task, average over time
-    task_update = jnp.mean(task_updates[-LS_avail:,:,:], axis=0)
-    
-
-    return task_update + jnp.sum(reg_updates, axis=0)
+    return jnp.sum(task_updates[-LS_avail:,:,:], axis=0) + jnp.sum(reg_updates, axis=0)
 
 
 
@@ -270,14 +257,8 @@ def neuromod_online(batch_init_carries:Tuple[Dict[str,Array], Array],
 
     # unpack different type of updates
     task_updates, reg_updates = updates
-
-    # average over batches
-    n_batch = jnp.shape(f_error)[0]
-    task_updates = task_updates / n_batch
-
-    # average over time
-    task_update = jnp.mean(task_updates[-LS_avail:,:,:], axis=0)    
-    return task_update + jnp.sum(reg_updates, axis=0)
+   
+    return jnp.sum(task_updates[-LS_avail:,:,:], axis=0)  + jnp.sum(reg_updates, axis=0)
     
 
     
@@ -327,11 +308,6 @@ def output_grads(batch_init_carries: Dict[str,Array], batch_inputs: Tuple[Array,
     
     # perform element-wise multiplication and sum over batches and time dimensions    
     grads = jnp.einsum('btor,tbor->ro', jnp.expand_dims(err,3), jnp.expand_dims(crop_trace,2)) # weights have shape (pre, post), so grad should have same shape --> ro)
-    
-    # average over batches and time
-    time_decision = jnp.shape(crop_trace)[0]
-    n_batch = jnp.shape(crop_trace)[1]
-    grads = grads /(n_batch * time_decision)
     
     return grads
 
@@ -466,8 +442,6 @@ def compute_grads(batch:Dict[str, Array], state,optimization_loss_fn:Callable, L
         grads['ALIFCell_0']['recurrent_weights'] = grads['ALIFCell_0']['recurrent_weights'] * (jnp.array(1) - identity) # guarantee that no self recurrence is learned
         # Guarantee that local connectivity is kept (otherwise, e-prop will lead to growth of new synapses)
         grads['ALIFCell_0']['recurrent_weights'] *= state.spatial_params['ALIFCell_0']['M']
-        jax.debug.print("Non zero grads: {}", jnp.where(grads['ALIFCell_0']['recurrent_weights'] !=0,1,0).sum())
-        jax.debug.print("M: {}", jnp.where(state.spatial_params['ALIFCell_0']['M']!=0,1,0).sum()/100)
         # Guarantee readout sparsity is kept        
         grads['ReadOut_0']['readout_weights'] *= state.spatial_params['ReadOut_0']['sparse_readout']
         return y, grads  

@@ -31,12 +31,12 @@ def pseudo_derivative(v: Array, A_thr: Array,r: Array, gamma:float, thr:float) -
 def update_v_eligibility_vector(v_vector: Array, inputs: Array, alpha: float) -> Array: # seems to be working
     """  Update voltage eligiblity vector
         alpha --> scalar; v_vector, inputs --> (n_pre,). Note that inputs here can be the inputs to the network (x) or the input from the other recurrent neurons (z), depending on which weight is being updated"""
-    return alpha * v_vector + inputs  # (n_pre,) --> it only depends o pre-synaptic neuron, so can be store like this and broadcasted to (n_rec, n_pre) where needed
+    return alpha * v_vector + (1-alpha) * inputs  # (n_pre,) --> it only depends o pre-synaptic neuron, so can be store like this and broadcasted to (n_rec, n_pre) where needed
   
 def update_a_eligibility_vector(a_vector: Array,v_vector: Array, psi: Array, betas: Array, rho: float) -> Array:
     """ Update adaptation eligiblity vector
         rho --> scalar,  v_vector --> (n_pre); psi,  betas --> (n_post); a_vector --> (n_post, n_pre)"""  
-    return   v_vector[None, ...] * psi[..., None]  + (rho -   betas[...,None] * psi[...,None]) * a_vector #(n_post, n_pre)
+    return   v_vector[None, ...] * psi[..., None] * (1-rho)  + (rho -  (1-rho) * betas[...,None] * psi[...,None]) * a_vector #(n_post, n_pre)
 
 
 def eligibility_trace(v_eligibility_vector: Array, a_eligibility_vector: Array, psi:Array, betas: Array) -> Array:

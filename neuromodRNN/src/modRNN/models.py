@@ -236,13 +236,13 @@ class ALIFCell(nn.recurrent.RNNCellBase):
             # the reset term in the approximated grads, thus also blocking here.
 
             local_z = lax.stop_gradient(z) # use for gradients that are not considered in e-prop: spike propagation and reset term
-            new_v =  (alpha.value * v +   ((jnp.dot(local_z, w_rec)) + jnp.dot(x, w_in)) - lax.stop_gradient(v*thr.value)) #important, z and x should have dimension n_b, n_features and w n_features, output dimension
-        
+            new_v =  (alpha.value * v +  (1-alpha.value) * ((jnp.dot(local_z, w_rec)) + jnp.dot(x, w_in)) - z*thr.value) #important, z and x should have dimension n_b, n_features and w n_features, output dimension
+            
         else:
-            new_v =   (alpha.value * v +  ((jnp.dot(z, w_rec)) + jnp.dot(x, w_in)) -  v*thr.value) #important, z and x should have dimension n_b, n_features and w n_features, output dimension
+            new_v =   (alpha.value * v + (1-alpha.value) *  ((jnp.dot(z, w_rec)) + jnp.dot(x, w_in)) - z*thr.value)#important, z and x should have dimension n_b, n_features and w n_features, output dimension
         
         # compute a at time t        
-        new_a = rho.value * a +  z # for adaptation, z is local and doesn`t need to be stopped even for autodiff e-prop
+        new_a = rho.value * a + (1 - rho.value) *  z # for adaptation, z is local and doesn`t need to be stopped even for autodiff e-prop
         
         # compute A_thr at time t
         new_A_thr =   thr.value + new_a * betas.value # compute value of adapted threshold at t+1  
@@ -293,6 +293,7 @@ class ALIFCell(nn.recurrent.RNNCellBase):
     @property
     def num_feature_axes(self) -> int:
         return 1
+
 
 
 class ReadOut(nn.recurrent.RNNCellBase):
