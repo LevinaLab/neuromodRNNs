@@ -424,7 +424,6 @@ def train_and_evaluate(cfg) -> TrainState:
                                                              batch_size=cfg.train_params.test_mini_batch_size, 
                                                              seed = cfg.task.seed, frequencies=cfg.task.frequencies,
                                                              n_population= cfg.net_arch.n_neurons_channel,
-                                                             weights = cfg.task.weights,
                                                              f_input =cfg.task.f_input, trial_dur=cfg.task.trial_dur
                                                              ))
     
@@ -442,7 +441,6 @@ def train_and_evaluate(cfg) -> TrainState:
                                                              batch_size=cfg.train_params.test_mini_batch_size, 
                                                              seed = cfg.task.seed, frequencies=cfg.task.frequencies,
                                                              n_population= cfg.net_arch.n_neurons_channel,
-                                                             weights = cfg.task.weights,
                                                              f_input =cfg.task.f_input, trial_dur=cfg.task.trial_dur)
         
         # Train for one epoch. 
@@ -470,7 +468,6 @@ def train_and_evaluate(cfg) -> TrainState:
                                                              batch_size=cfg.train_params.test_mini_batch_size, 
                                                              seed = cfg.task.seed, frequencies=cfg.task.frequencies,
                                                              n_population= cfg.net_arch.n_neurons_channel,
-                                                             weights = cfg.task.weights,
                                                              f_input =cfg.task.f_input, trial_dur=cfg.task.trial_dur)
         
         
@@ -492,7 +489,6 @@ def train_and_evaluate(cfg) -> TrainState:
                                                              batch_size=cfg.train_params.test_mini_batch_size, 
                                                              seed = cfg.task.seed, frequencies=cfg.task.frequencies,
                                                              n_population= cfg.net_arch.n_neurons_channel,
-                                                             weights = cfg.task.weights,
                                                              f_input =cfg.task.f_input, trial_dur=cfg.task.trial_dur)
                 
                 test_metrics = evaluate_model(eval_step_fn, state, test_batch, epoch, LS_avail=cfg.task.LS_avail)  

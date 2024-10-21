@@ -327,7 +327,7 @@ Parameters:
     
 
 def pattern_generation(n_batches:int, batch_size:int, seed:int, frequencies:List[float], 
-                       weights:List[float],n_population:int, f_input:float, trial_dur:int):
+                       n_population:int, f_input:float, trial_dur:int):
     """
     Generate batches of data for a pattern generation task.
     
@@ -347,9 +347,6 @@ def pattern_generation(n_batches:int, batch_size:int, seed:int, frequencies:List
         but batches will still be different within each other.
     frequencies: List of floats
         Frequencies of sinusoids used to create output goal
-    weights: List of floats
-        Weight of each sinusoid in the final sum. The weights correspond to the frequencies with same index in the
-        frequencies list     
     n_population: int
         The number of neurons in input population
     f_input: int
@@ -376,6 +373,7 @@ def pattern_generation(n_batches:int, batch_size:int, seed:int, frequencies:List
     # create time vector
     t = np.arange(trial_dur)
 
+    
     # input spikes
     if seed is None:
         rng = np.random.default_rng()
@@ -385,6 +383,11 @@ def pattern_generation(n_batches:int, batch_size:int, seed:int, frequencies:List
     input_shape = (n_batches, trial_dur, n_population )    
     inputs = (rng.uniform(size=input_shape) < f_input).astype(float)
 
+    # generate random weights
+    weights = rng.uniform(size=5)
+    # normalize weights to sum up to 1
+    weights /= np.sum(weights)
+    
     # generate signal (label
     signal = np.zeros(trial_dur)
     for f, w in zip(frequencies, weights):

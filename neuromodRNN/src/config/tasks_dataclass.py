@@ -55,7 +55,6 @@ class PatternGeneration(Task):
     LS_avail: int = 0    
     seed: Optional[int] = None
     frequencies: List[float] = field(default_factory=lambda: [0.5, 1., 2., 3., 4.])
-    weights: List[float] = field(default_factory=lambda: [0.2,0.2,0.2,0.2,0.2])
     f_input: float = 10.
     trial_dur: int = 2000
 
