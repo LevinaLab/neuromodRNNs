@@ -304,7 +304,7 @@ def train_and_evaluate(
     The final train state that includes the trained parameters.
     """
 
-    n_in = 4 * cfg.net_arch.n_neurons_channel
+    n_in = 4 * cfg.net_arch.n_neurons_channel # input channels for cue have two times the number of neurons than inputs for cue and noise channel
 
     
     # split keys
@@ -323,7 +323,7 @@ def train_and_evaluate(
     accuracy_eval = []
     iterations = []
     # Compile step functions.
-    train_step_fn = jax.jit(train_step, static_argnames=["LS_avail", "learning_rule", "task"])
+    train_step_fn = jax.jit(train_step, static_argnames=["LS_avail", "learning_rule", "task", "shuffle"])
     eval_step_fn = jax.jit(eval_step, static_argnames=["LS_avail"])
    
    # this is a trick to pass a Callable as argument of jitted function
@@ -344,79 +344,87 @@ def train_and_evaluate(
     
     logger = logging.getLogger(__name__)
     
+    for decision_delay in [cfg.task.decision_delay]:
+  # Prepare datasets.
+      # We want the test set to be always the same. So, instead of keeping generate the same data by fixing seed, generate data once and store it as a list of bathes
+      eval_batch=  list(tasks.delayed_match_task(n_batches= cfg.train_params.test_batch_size, 
+                                                              batch_size=cfg.train_params.test_mini_batch_size, 
+                                                              n_population=cfg.net_arch.n_neurons_channel,
+                                                              f_background=cfg.task.f_background, f_input=cfg.task.f_input,
+                                                              p = cfg.task.p, fixation_time=cfg.task.fixation_time, 
+                                                              cue_time=cfg.task.cue_time,  cue_delay_time=cfg.task.cue_delay_time,
+                                                              decision_delay = decision_delay,LS_avail=cfg.task.LS_avail, seed = cfg.task.seed ))
+      train_task_seeds = random.randint(random.PRNGKey(cfg.task.seed), (cfg.train_params.iterations,), 10000, 10000000)    
+  # Main training loop.
+      logger.info('Starting training...')
+      for epoch, train_seed in zip(range(1, cfg.train_params.iterations+1), train_task_seeds): # change size of loop
+          
+          sub_shuffle_key, shuffle_key = random.split(shuffle_key) # splits key to get new one every batch
+          
+          train_batch=  tasks.delayed_match_task(n_batches= cfg.train_params.train_batch_size, 
+                                                              batch_size=cfg.train_params.train_mini_batch_size, 
+                                                              n_population=cfg.net_arch.n_neurons_channel,
+                                                              f_background=cfg.task.f_background, f_input=cfg.task.f_input,
+                                                              p = cfg.task.p, fixation_time=cfg.task.fixation_time, 
+                                                              cue_time=cfg.task.cue_time,cue_delay_time=cfg.task.cue_delay_time,
+                                                                decision_delay = decision_delay,
+                                                              LS_avail=cfg.task.LS_avail, seed = train_seed.item())
+          
+          # Train for one epoch. 
+          logger.info("\t Starting Epoch:{} ".format(epoch))     
+          state, train_metrics, accumulated_grads = train_epoch(train_step_fn=train_step_fn, state=state, train_batches=train_batch, epoch=epoch, optimization_loss_fn=closure, LS_avail=cfg.task.LS_avail,
+                                                                f_target=cfg.train_params.f_target, c_reg=cfg.train_params.c_reg,
+                                                                learning_rule=cfg.train_params.learning_rule, 
+                                                                task=cfg.task.task_type,
+                                                                shuffle=cfg.train_params.shuffle,shuffle_key=sub_shuffle_key
+                                                                )
+        
+        
+          
+  
+          # Evaluate current model on the validation data.        
+          if (epoch - 1) % 25 == 0:      
+              eval_metrics = evaluate_model(eval_step_fn, state, eval_batch, epoch, LS_avail=cfg.task.LS_avail)  
+              loss_training.append(train_metrics.loss)
+              loss_eval.append(eval_metrics.loss)
+              accuracy_training.append(train_metrics.accuracy)
+              accuracy_eval.append(eval_metrics.accuracy)
+              iterations.append(epoch)  
 
-# Prepare datasets.
-    # We want the test set to be always the same. So, instead of keeping generate the same data by fixing seed, generate data once and store it as a list of bathes
-    eval_batch=  list(tasks.delayed_match_task(n_batches= cfg.train_params.test_batch_size, 
-                                                             batch_size=cfg.train_params.test_mini_batch_size, 
-                                                             n_population=cfg.net_arch.n_neurons_channel,
-                                                             f_background=cfg.task.f_background, f_input=cfg.task.f_input,
-                                                             p = cfg.task.p, fixation_time=cfg.task.fixation_time, 
-                                                             cue_time=cfg.task.cue_time,  delay_time=cfg.task.delay_time,
-                                                             decision_time=cfg.task.decision_time, seed = cfg.task.seed ))
-    train_task_seeds = random.randint(random.PRNGKey(cfg.task.seed), (cfg.train_params.iterations,), 10000, 10000000)    
-# Main training loop.
-    logger.info('Starting training...')
-    for epoch, train_seed in zip(range(1, cfg.train_params.iterations+1), train_task_seeds): # change size of loop
-        
-        sub_shuffle_key, shuffle_key = random.split(shuffle_key) # splits key to get new one every batch
-        
-        train_batch=  tasks.delayed_match_task(n_batches= cfg.train_params.train_batch_size, 
-                                                             batch_size=cfg.train_params.train_mini_batch_size, 
-                                                             n_population=cfg.net_arch.n_neurons_channel,
-                                                             f_background=cfg.task.f_background, f_input=cfg.task.f_input,
-                                                             p = cfg.task.p, fixation_time=cfg.task.fixation_time, 
-                                                             cue_time=cfg.task.cue_time,  delay_time=cfg.task.delay_time,
-                                                             decision_time=cfg.task.decision_time, seed = train_seed.item())
-        
-        # Train for one epoch. 
-        logger.info("\t Starting Epoch:{} ".format(epoch))     
-        state, train_metrics, accumulated_grads = train_epoch(train_step_fn=train_step_fn, state=state, train_batches=train_batch, epoch=epoch, optimization_loss_fn=closure, LS_avail=cfg.task.LS_avail,
-                                                              f_target=cfg.train_params.f_target, c_reg=cfg.train_params.c_reg,
-                                                              learning_rule=cfg.train_params.learning_rule, 
-                                                              task=cfg.task.task_type,
-                                                              shuffle=cfg.train_params.shuffle,shuffle_key=sub_shuffle_key
-                                                              )
-       
-       
-        
- 
-        # Evaluate current model on the validation data.        
-        if (epoch - 1) % 25 == 0:      
-            eval_metrics = evaluate_model(eval_step_fn, state, eval_batch, epoch, LS_avail=cfg.task.LS_avail)  
-            loss_training.append(train_metrics.loss)
-            loss_eval.append(eval_metrics.loss)
-            accuracy_training.append(train_metrics.accuracy)
-            accuracy_eval.append(eval_metrics.accuracy)
-            iterations.append(epoch - 1)  
+              # early stop
+              if eval_metrics.accuracy > cfg.train_params.stop_criteria:
+                accuracy_test = []
+                for i in range(3):
+                  test_batch = tasks.delayed_match_task(n_batches= cfg.train_params.test_batch_size, 
+                                                              batch_size=cfg.train_params.test_mini_batch_size, 
+                                                              n_population=cfg.net_arch.n_neurons_channel,
+                                                              f_background=cfg.task.f_background, f_input=cfg.task.f_input,
+                                                              p = cfg.task.p, fixation_time=cfg.task.fixation_time, 
+                                                              cue_time=cfg.task.cue_time,cue_delay_time=cfg.task.cue_delay_time,
+                                                              decision_delay = decision_delay,
+                                                              LS_avail=cfg.task.LS_avail, seed = cfg.task.seed +i )
+                  test_metrics = evaluate_model(eval_step_fn, state, test_batch, epoch, LS_avail=cfg.task.LS_avail)  
+                  if test_metrics.accuracy < cfg.train_params.stop_criteria:
+                    break
+                  accuracy_test.append(test_metrics.accuracy)
+                if len(accuracy_test) == 3:
+                  logger.info(f'Met early stopping criteria, breaking at epoch {epoch}')
+          
+                  break
+          # Plot hist of grads.        
+          if (epoch - 1) % 100 == 0: 
+            grad_fig_directory = os.path.join(output_dir, 'grad_figs')
+            os.makedirs(grad_fig_directory, exist_ok=True)
+            grad_save_path = os.path.join(grad_fig_directory, str(epoch))
+            plots.plot_gradients(accumulated_grads, state.spatial_params, epoch, grad_save_path)
 
-            # early stop
-            if eval_metrics.accuracy > cfg.train_params.stop_criteria:
-              accuracy_test = []
-              for i in range(3):
-                test_batch = tasks.delayed_match_task(n_batches= cfg.train_params.test_batch_size, 
-                                                             batch_size=cfg.train_params.test_mini_batch_size, 
-                                                             n_population=cfg.net_arch.n_neurons_channel,
-                                                             f_background=cfg.task.f_background, f_input=cfg.task.f_input,
-                                                             p = cfg.task.p, fixation_time=cfg.task.fixation_time, 
-                                                             cue_time=cfg.task.cue_time,  delay_time=cfg.task.delay_time,
-                                                             decision_time=cfg.task.decision_time, seed = cfg.task.seed +i )
-                test_metrics = evaluate_model(eval_step_fn, state, test_batch, epoch, LS_avail=cfg.task.LS_avail)  
-                if test_metrics.accuracy < cfg.train_params.stop_criteria:
-                   break
-                accuracy_test.append(test_metrics.accuracy)
-              if len(accuracy_test) == 3:
-                logger.info(f'Met early stopping criteria, breaking at epoch {epoch}')
-        
-                break
-        # Plot hist of grads.        
-        if (epoch - 1) % 100 == 0: 
-          grad_fig_directory = os.path.join(output_dir, 'grad_figs')
-          os.makedirs(grad_fig_directory, exist_ok=True)
-          grad_save_path = os.path.join(grad_fig_directory, str(epoch))
-          plots.plot_gradients(accumulated_grads, state.spatial_params, epoch, grad_save_path)
-
-    
+    # evaluation after last epoch
+    eval_metrics = evaluate_model(eval_step_fn, state, eval_batch, epoch, LS_avail=cfg.task.LS_avail)  
+    loss_training.append(train_metrics.loss)
+    loss_eval.append(eval_metrics.loss)
+    accuracy_training.append(train_metrics.accuracy)
+    accuracy_eval.append(eval_metrics.accuracy)
+    iterations.append(epoch)  
 
     train_info_directory = os.path.join(output_dir, 'train_info')
     os.makedirs(train_info_directory, exist_ok=True)

@@ -3,7 +3,7 @@ import pickle
 import numpy as np
 import matplotlib.pyplot as plt
 
-def plot_multiruns(experiment_folder, label, metric_file, ax):
+def plot_multiruns(experiment_folder, label, metric_file, ax, color):
 
     loss_all_runs = []
     
@@ -33,8 +33,8 @@ def plot_multiruns(experiment_folder, label, metric_file, ax):
     # Plot the average loss with variance as a shaded area
     epochs = np.arange(0, max_epochs * 25, 25)
 
-    ax.plot(epochs, mean_loss, label=label)
-    ax.fill_between(epochs, mean_loss - np.sqrt(variance_loss), mean_loss + np.sqrt(variance_loss), alpha=0.4)
+    ax.plot(epochs, mean_loss, label=label, c=color)
+    ax.fill_between(epochs, mean_loss - np.sqrt(variance_loss), mean_loss + np.sqrt(variance_loss),color=color, alpha=0.4)
     ax.legend()
 
 
