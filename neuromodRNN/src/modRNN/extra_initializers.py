@@ -347,7 +347,7 @@ def k_initializer(k, shape) -> Callable:
     """    
     def initializer(key=random.key(0), shape=shape, dtype=jnp.float32):
         
-        kernel = jnp.ones(shape=shape) # 3 output channels, 1 input channel, height 3, width 3
+        kernel = jnp.ones(shape=shape) # 3 output channels, 1 input channel, height 2*radius +1 , width 2*radius +1
         kernel = kernel / (jnp.sum(kernel, axis=(2,3))[:,:,None,None]) # normalize kernel so that it sums up to 1
         kernel = k * kernel # apply decay
         

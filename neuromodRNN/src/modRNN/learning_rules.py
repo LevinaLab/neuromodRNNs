@@ -91,6 +91,10 @@ def e_prop_vectorized(batch_init_carries:Tuple[Dict[str,Array], Array],
     # compute task loss gradient
     task_update = jnp.einsum('btri,tbri->ir', jnp.expand_dims(L,axis=3), crop_low_trace)
 
+    # average over batch and time
+    batch_size = jnp.shape(crop_low_trace)[1]
+    time = jnp.shape(crop_low_trace)[0]
+    task_update = task_update / (batch_size * time)
 
     # compute firing rate regularization gradient
     acum_eligibility_trace = jnp.sum(eligibility_traces, axis=0) # (n_batches,n_post, n_pre)
@@ -129,6 +133,7 @@ def e_prop_online(batch_init_carries:Tuple[Dict[str,Array], Array],
     y_batch = jnp.transpose(y_batch, (1,0,2)) # time need to be leading axis (n_t,n_b, n_out)
     true_y_batch = jnp.transpose(true_y_batch, (1,0,2)) # time need to be leading axis (n_t,n_b, n_out)
     
+    batch_size = jnp.shape(true_y_batch)[1]
 
     def one_step_gradient(eligibility_carries, inputs, eligibility_params):
         y_batch_step, true_y_batch_step, eligibility_input_step = inputs
@@ -142,6 +147,8 @@ def e_prop_online(batch_init_carries:Tuple[Dict[str,Array], Array],
         
         task_update = jnp.einsum('bri,bri->ir', jnp.expand_dims(L,axis=2), low_pass_trace) #n_pre, n_post        
         
+        # average over batch 
+        task_update /= batch_size
 
         reg_update = + (c_reg/trial_length[:,None,None]) * f_error[:,:,None] * eligibility_trace # n_post, n_pre
         reg_update = jnp.transpose(jnp.mean(reg_update, axis=0),(1,0)) # mean over batches and transpose to have shape of weights n_pre, n_post
@@ -156,7 +163,7 @@ def e_prop_online(batch_init_carries:Tuple[Dict[str,Array], Array],
     )
     task_updates, reg_updates = updates    
 
-    return jnp.sum(task_updates[-LS_avail:,:,:], axis=0) + jnp.sum(reg_updates, axis=0)
+    return jnp.mean(task_updates[-LS_avail:,:,:], axis=0) + jnp.sum(reg_updates, axis=0)
 
 
 
@@ -176,8 +183,8 @@ def neuromod_online(batch_init_carries:Tuple[Dict[str,Array], Array],
     # collect spatial params    
     diff_K = spatial_params['ALIFCell_0']['diff_K'] # diffusion kernel
 
-    #radius = (jnp.shape(diff_K)[2] -1) // 2 # radius is not direclty saved as a params, but can be easily recovered since shape of kernel depends on it. k(n_neurotransmitter,1, 2*radius +1, 2*radius +1)
-    radius=1
+    radius = (jnp.shape(diff_K)[2] -1) // 2 # radius is not direclty saved as a params, but can be easily recovered since shape of kernel depends on it. k(n_neurotransmitter,1, 2*radius +1, 2*radius +1)
+    #radius=1
     cells_loc = spatial_params['ALIFCell_0']['cells_loc'] # array containig indices localizing position of the cells in the grid
 
 
@@ -194,6 +201,8 @@ def neuromod_online(batch_init_carries:Tuple[Dict[str,Array], Array],
         
     y_batch = jnp.transpose(y_batch, (1,0,2)) # time need to be leading axis (n_t,n_b, n_out)
     true_y_batch = jnp.transpose(true_y_batch, (1,0,2)) # time need to be leading axis (n_t,n_b, n_out)
+
+    batch_size = jnp.shape(true_y_batch)[1]
 
     def create_LS_vector():
         """create vector at 0s at time steps where Learning Signal is not available, and 1s where it is """
@@ -243,6 +252,11 @@ def neuromod_online(batch_init_carries:Tuple[Dict[str,Array], Array],
         
         new_eligibility_carries['low_pass_eligibility_trace'], low_pass_trace = learning_utils.batched_low_pass_eligibility_trace(new_eligibility_carries['low_pass_eligibility_trace'],eligibility_trace,eligibility_params)
         task_update = jnp.einsum('bri,bri->ir', jnp.expand_dims(L,axis=2), low_pass_trace) #n_pre, n_post
+        
+        # average over batch 
+        task_update /= batch_size
+        
+        
         reg_update =  (c_reg/trial_length[:,None,None]) * f_error[:,:,None] * eligibility_trace # n_post, n_pre
         reg_update = jnp.transpose(jnp.mean(reg_update, axis=0),(1,0)) # mean over batches and transpose to have shape of weights n_pre, n_post
         return (new_eligibility_carries, new_error_grid), (task_update,reg_update)
@@ -258,7 +272,7 @@ def neuromod_online(batch_init_carries:Tuple[Dict[str,Array], Array],
     # unpack different type of updates
     task_updates, reg_updates = updates
    
-    return jnp.sum(task_updates[-LS_avail:,:,:], axis=0)  + jnp.sum(reg_updates, axis=0)
+    return jnp.mean(task_updates[-LS_avail:,:,:], axis=0)  + jnp.sum(reg_updates, axis=0)
     
 
     
@@ -308,6 +322,13 @@ def output_grads(batch_init_carries: Dict[str,Array], batch_inputs: Tuple[Array,
     
     # perform element-wise multiplication and sum over batches and time dimensions    
     grads = jnp.einsum('btor,tbor->ro', jnp.expand_dims(err,3), jnp.expand_dims(crop_trace,2)) # weights have shape (pre, post), so grad should have same shape --> ro)
+    
+    # average over time and batches
+    
+    batch_size = jnp.shape(crop_trace)[1]
+    time = jnp.shape(crop_trace)[0]
+    grads = grads / (batch_size * time)
+    
     
     return grads
 

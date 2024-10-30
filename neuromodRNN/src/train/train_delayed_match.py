@@ -120,7 +120,7 @@ def create_train_state(rng:PRNGKey, learning_rate:float, model:LSSN, input_shape
   tx = optax.adam(learning_rate=learning_rate)
   grad_accum_steps = int(batch_size/mini_batch_size)
   if grad_accum_steps > 1:
-    tx = optax.MultiSteps(opt=tx, every_k_schedule=grad_accum_steps, use_grad_mean=False)
+    tx = optax.MultiSteps(opt=tx, every_k_schedule=grad_accum_steps, use_grad_mean=True)
   state = TrainStateEProp.create(apply_fn=model.apply, params=params, tx=tx, 
                                   eligibility_params=eligibility_params,
                                   spatial_params = spatial_params,
@@ -137,7 +137,7 @@ def optimization_loss(logits, labels, z, c_reg, f_target, trial_length):
         2. labels are assumed to be one-hot encoded
   """
   # notice that optimization_loss is only called inside of learning_rules.compute_grads, and labels are already passed there as one-hot code and y is already softmax transformed
-  task_loss = jnp.sum(losses.softmax_cross_entropy(logits=logits, labels=labels) ) # sum over batches and time
+  task_loss = jnp.mean(losses.softmax_cross_entropy(logits=logits, labels=labels) ) # sum over batches and time
   
   av_f_rate = learning_utils.compute_firing_rate(z=z, trial_length=trial_length)
   f_target = f_target / 1000 # f_target is given in Hz, bu av_f_rate is spikes/ms --> Bellec 2020 used the f_reg also in spikes/ms
