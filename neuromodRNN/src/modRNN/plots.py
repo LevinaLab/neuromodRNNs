@@ -3,8 +3,11 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+from matplotlib.colors import ListedColormap
 import seaborn as sns
 import jax.numpy as jnp
+from met_brewer import met_brew
+from matplotlib.colors import TwoSlopeNorm
 # Just for typing the type of inputs of functions
 from typing import (
  List  
@@ -14,7 +17,7 @@ from flax.typing import (
   Array,
 )
 
-
+plt.rcParams.update({'font.size': 22})
 
 
 def plot_cue_accumulation_inputs(neuron_spikes: Array, n_population:int = 10, input_mode:str="original", ax =None):
@@ -207,16 +210,19 @@ def plot_LSNN_weights(state, layer_names:List, save_path):
     """ Plot weights of the different layers.  """
   
     # Create a figure and a set of subplots
-    fig, axs = plt.subplots(1, 3, figsize=(12, 4))
+    fig, axs = plt.subplots(3, 1, figsize=(6, 14))
     
     weights_list = [state.params['ALIFCell_0']['input_weights'],state.params['ALIFCell_0']['recurrent_weights'],
                     state.params['ReadOut_0']['readout_weights']]
     
+    met_brew_colors = met_brew('OKeeffe1', n=256, brew_type='continuous')
+    #met_brew_colors = met_brew_colors[0:118] + met_brew_colors[138:]
+    cmap = ListedColormap(met_brew_colors)
     for i, (weights, ax) in enumerate(zip(weights_list, axs)):
        
-        
+        divnorm = TwoSlopeNorm(vmin=weights.min(), vcenter=0, vmax=weights.max())
         # Plot the weights
-        cax = ax.imshow(weights, cmap='viridis',interpolation='nearest', aspect='auto')
+        cax = ax.imshow(weights, cmap=cmap,interpolation='nearest', aspect='auto', norm=divnorm)
      
         
         # Add a color bar
@@ -230,7 +236,7 @@ def plot_LSNN_weights(state, layer_names:List, save_path):
     axs[2].set_xticks([0.25, 0.75], ["left", "rigth"])
     # Adjust layout to prevent overlap
     fig.tight_layout()
-    fig.savefig(save_path)
+    fig.savefig(save_path, format="svg")
     plt.close()
     
 def plot_weights_spatially_indexed(state, gridshape, save_path):
@@ -304,7 +310,7 @@ def plot_weights_spatially_indexed(state, gridshape, save_path):
         axs[1,1].set_ylabel('y position grid')
     
     fig.tight_layout()
-    fig.savefig(save_path)
+    fig.savefig(save_path, format="svg")
     plt.close()
 
 def plot_gradients(grads, spatial_params, epoch, save_path):
@@ -376,5 +382,5 @@ def plot_gradients(grads, spatial_params, epoch, save_path):
     fig.suptitle(f"Epoch: {epoch}", fontsize=16)
     # Adjust layout to prevent overlap
     fig.tight_layout()
-    fig.savefig(save_path)
+    fig.savefig(save_path, format="svg")
     plt.close()
