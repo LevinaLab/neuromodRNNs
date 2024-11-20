@@ -47,7 +47,7 @@ from flax.typing import (
 @custom_vjp
 def spike(v_scaled, gamma, r):
     
-    z = (jnp.where(v_scaled > 0, jnp.float64(1),jnp.float64(0)))
+    z = (jnp.where(v_scaled > 0, jnp.float32(1),jnp.float32(0)))
     return z
 # forwardpass: spike function
 def spike_fwd(v_scaled, gamma, r):
@@ -535,7 +535,7 @@ class LSSN(nn.Module):
     # Others
     dt: float = 1      
     loss: Callable = losses.softmax_cross_entropy   
-    param_dtype: Dtype = jnp.float64
+    param_dtype: Dtype = jnp.float32
     
     
     @compact

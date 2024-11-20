@@ -137,7 +137,7 @@ def optimization_loss(logits, labels, z, c_reg, f_target, trial_length):
         2. labels are assumed to be one-hot encoded
   """
   # notice that optimization_loss is only called inside of learning_rules.compute_grads, and labels are already passed there as one-hot code and y is already softmax transformed
-  task_loss = jnp.mean(losses.softmax_cross_entropy(logits=logits, labels=labels) ) # sum over batches and time
+  task_loss = jnp.mean(losses.softmax_cross_entropy(logits=logits, labels=labels)) # mean over batches and sum over time
   
   av_f_rate = learning_utils.compute_firing_rate(z=z, trial_length=trial_length)
   f_target = f_target / 1000 # f_target is given in Hz, bu av_f_rate is spikes/ms --> Bellec 2020 used the f_reg also in spikes/ms
@@ -444,9 +444,9 @@ def train_and_evaluate(
     
     layer_names = ["Input layer", "Recurrent layer", "Readout layer"]
     plots.plot_LSNN_weights(state,layer_names=layer_names,
-                       save_path=os.path.join(figures_directory, "weights"))
+                       save_path=os.path.join(figures_directory, "weights.svg"))
   
-    plots.plot_weights_spatially_indexed(state, cfg.net_arch.gridshape,os.path.join(figures_directory, "spatially_weights"))
+    plots.plot_weights_spatially_indexed(state, cfg.net_arch.gridshape,os.path.join(figures_directory, "spatially_weights.svg"))
     
     #
     fig_train, axs_train = plt.subplots(2, 2, figsize=(12, 10))
@@ -483,7 +483,7 @@ def train_and_evaluate(
     fig_train.tight_layout()
 
     # Save the figure
-    fig_train.savefig(os.path.join(figures_directory, "training"))
+    fig_train.savefig(os.path.join(figures_directory, "training.svg"), format="svg")
     plt.close(fig_train)
 
     # Plot task and model
@@ -515,7 +515,7 @@ def train_and_evaluate(
     plots.plot_softmax_output(y[0,:,1],ax= ax1_4, label="Probability of 1", title="Softmaxt Output: neuron coding 1")
     fig1.suptitle("Example 1: " + cfg.save_paths.condition)
     fig1.tight_layout()
-    fig1.savefig(os.path.join(figures_directory, "example_1"))      
+    fig1.savefig(os.path.join(figures_directory, "example_1.svg"), format="svg")      
     plt.close(fig1)
 
     input_example_2 = visualization_batch['input'][1,:,:]
@@ -533,7 +533,7 @@ def train_and_evaluate(
     plots.plot_softmax_output(y[1,:,1],ax= ax2_4, label="Probability of 1", title="Softmaxt Output: neuron coding 1")
     fig2.suptitle("Example 2: " + cfg.save_paths.condition)
     fig2.tight_layout()
-    fig2.savefig(os.path.join(figures_directory, "example_2"))      
+    fig2.savefig(os.path.join(figures_directory, "example_2.svg"),format="svg")      
     plt.close(fig2)
 
 
@@ -552,5 +552,5 @@ def train_and_evaluate(
     plots.plot_softmax_output(y[2,:,1],ax= ax3_4, label="Probability of 1", title="Softmaxt Output: neuron coding 1")
     fig3.suptitle("Example 3: " + cfg.save_paths.condition)
     fig3.tight_layout()
-    fig3.savefig(os.path.join(figures_directory, "example_3"))   
+    fig3.savefig(os.path.join(figures_directory, "example_3.svg"), format="svg")   
     plt.close(fig3)

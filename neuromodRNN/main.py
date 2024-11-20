@@ -8,8 +8,8 @@ import os
 import sys
 import logging
 from jax import config, numpy as jnp
-config.update("jax_enable_x64", True)
-config.update("jax_default_matmul_precision", "float32")
+#config.update("jax_enable_x64", True)
+#config.update("jax_default_matmul_precision", "float32")
 
 file_dir = str(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(file_dir)

@@ -88,7 +88,7 @@ def model_from_config(cfg)-> LSSN:
 
 def get_initial_params(rng:PRNGKey, model:LSSN, input_shape:Tuple[int,...])->Tuple[Dict,]:
   """Returns randomly initialized parameters, eligibility parameters and connectivity mask."""
-  dummy_x = jnp.ones(input_shape, dtype=jnp.float64)
+  dummy_x = jnp.ones(input_shape)
   variables = model.init(rng, dummy_x)
   return variables['params'], variables['eligibility params'], variables['spatial params']
     
@@ -121,7 +121,7 @@ def create_train_state(rng:PRNGKey, learning_rate:float, model:LSSN, input_shape
   tx = optax.adam(learning_rate=learning_rate)
   grad_accum_steps = int(batch_size/mini_batch_size)
   if grad_accum_steps > 1:
-    tx = optax.MultiSteps(opt=tx, every_k_schedule=grad_accum_steps, use_grad_mean=False)
+    tx = optax.MultiSteps(opt=tx, every_k_schedule=grad_accum_steps, use_grad_mean=True)
   state = TrainStateEProp.create(apply_fn=model.apply, params=params, tx=tx, 
                                   eligibility_params=eligibility_params,
                                   spatial_params = spatial_params,
@@ -139,7 +139,7 @@ def optimization_loss(logits, labels, z, c_reg, f_target, trial_length):
         2. labels are assumed to be one-hot encoded
   """
   # notice that optimization_loss is only called inside of learning_rules.compute_grads, and labels are already passed there as one-hot code and y is already softmax transformed
-  task_loss = jnp.sum(losses.softmax_cross_entropy(logits=logits, labels=labels) ) # sum over batches and time --> it accumulates gradients, but in additively way (should not normalize batches)
+  task_loss = jnp.mean(losses.softmax_cross_entropy(logits=logits, labels=labels)) # mean over batches and sum over time
   
   av_f_rate = learning_utils.compute_firing_rate(z=z, trial_length=trial_length)
   f_target = f_target / 1000 # f_target is given in Hz, bu av_f_rate is spikes/ms --> Bellec 2020 used the f_reg also in spikes/ms
@@ -513,13 +513,24 @@ def train_and_evaluate(cfg) -> TrainState:
 
 
 
-        # Plot hist of grads.        
-        if (epoch - 1) % 100 == 0: 
-          grad_fig_directory = os.path.join(output_dir, 'grad_figs')
-          os.makedirs(grad_fig_directory, exist_ok=True)
-          grad_save_path = os.path.join(grad_fig_directory, str(epoch))
-          plots.plot_gradients(accumulated_grads, state.spatial_params, epoch, grad_save_path)
+        # # Plot hist of grads.        
+        # if (epoch - 1) % 100 == 0: 
+        #   grad_fig_directory = os.path.join(output_dir, 'grad_figs')
+        #   os.makedirs(grad_fig_directory, exist_ok=True)
+        #   grad_save_path = os.path.join(grad_fig_directory, str(epoch))
+        #   plots.plot_gradients(accumulated_grads, state.spatial_params, epoch, grad_save_path)
                   
+
+    # evaluation after last epoch
+    eval_metrics = evaluate_model(eval_step_fn, state, eval_batch, epoch, LS_avail=cfg.task.LS_avail)  
+    loss_training.append(train_metrics.loss)
+    loss_eval.append(eval_metrics.loss)
+    accuracy_training.append(train_metrics.accuracy)
+    accuracy_eval.append(eval_metrics.accuracy)
+    iterations.append(epoch)  
+
+
+
 
     train_info_directory = os.path.join(output_dir, 'train_info')
     os.makedirs(train_info_directory, exist_ok=True)
@@ -539,10 +550,10 @@ def train_and_evaluate(cfg) -> TrainState:
     
     layer_names = ["Input layer", "Recurrent layer", "Readout layer"]
     plots.plot_LSNN_weights(state,layer_names=layer_names,
-                       save_path=os.path.join(figures_directory, "weights"))
+                       save_path=os.path.join(figures_directory, "weights.svg"))
   
     
-    plots.plot_weights_spatially_indexed(state, cfg.net_arch.gridshape,os.path.join(figures_directory, "spatially_weights"))
+    plots.plot_weights_spatially_indexed(state, cfg.net_arch.gridshape,os.path.join(figures_directory, "spatially_weights.svg"))
     #
     fig_train, axs_train = plt.subplots(2, 2, figsize=(12, 10))
 
@@ -578,7 +589,7 @@ def train_and_evaluate(cfg) -> TrainState:
     fig_train.tight_layout()
 
     # Save the figure
-    fig_train.savefig(os.path.join(figures_directory, "training"))
+    fig_train.savefig(os.path.join(figures_directory, "training.svg"), format="svg")
     plt.close(fig_train)
 
 
@@ -614,7 +625,7 @@ def train_and_evaluate(cfg) -> TrainState:
     plots.plot_softmax_output(y[0,:,0],ax= ax1_4)
     fig1.suptitle("Example 1: " + cfg.save_paths.condition)
     fig1.tight_layout()
-    fig1.savefig(os.path.join(figures_directory, "example_1"))      
+    fig1.savefig(os.path.join(figures_directory, "example_1.svg"), format="svg")      
     plt.close(fig1)
 
     input_example_2 = visualization_batch['input'][1,:,:]
@@ -632,7 +643,7 @@ def train_and_evaluate(cfg) -> TrainState:
     plots.plot_softmax_output(y[1,:,0],ax= ax2_4)
     fig2.suptitle("Example 2: " + cfg.save_paths.condition)
     fig2.tight_layout()
-    fig2.savefig(os.path.join(figures_directory, "example_2"))      
+    fig2.savefig(os.path.join(figures_directory, "example_2.svg"),format="svg")      
     plt.close(fig2)
 
 
@@ -651,7 +662,7 @@ def train_and_evaluate(cfg) -> TrainState:
     plots.plot_softmax_output(y[2,:,0],ax= ax3_4)
     fig3.suptitle("Example 3: " + cfg.save_paths.condition)
     fig3.tight_layout()
-    fig3.savefig(os.path.join(figures_directory, "example_3"))   
+    fig3.savefig(os.path.join(figures_directory, "example_3.svg"),format="svg")   
     plt.close(fig3)
 
     if cfg.train_params.test_grads:

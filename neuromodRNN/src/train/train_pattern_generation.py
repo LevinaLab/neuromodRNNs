@@ -121,7 +121,7 @@ def create_train_state(rng:PRNGKey, learning_rate:float, model:LSSN, input_shape
   tx = optax.adam(learning_rate=learning_rate)
   grad_accum_steps = int(batch_size/mini_batch_size)
   if grad_accum_steps > 1:
-    tx = optax.MultiSteps(opt=tx, every_k_schedule=grad_accum_steps, use_grad_mean=False)
+    tx = optax.MultiSteps(opt=tx, every_k_schedule=grad_accum_steps, use_grad_mean=True)
   state = TrainStateEProp.create(apply_fn=model.apply, params=params, tx=tx, 
                                   eligibility_params=eligibility_params,
                                   spatial_params = spatial_params,
@@ -135,7 +135,7 @@ def optimization_loss(logits, labels, z, c_reg, f_target, trial_length):
   if labels.ndim==2: # calling labels what normally people call targets in regression tasks
       labels = jnp.expand_dims(labels, axis=-1) # this is necessary because target labels might have only (n_batch, n_t) and predictions (n_batch, n_t, n_out=1)
 
-  task_loss = 0.5 * jnp.sum(losses.squared_error(targets=labels, predictions=logits)) # sum over batches and time --> usually, take average, but biologically is unplausible that updates are averaged across batches, so sum
+  task_loss = 0.5 * jnp.mean(losses.squared_error(targets=labels, predictions=logits))# sum over batches and time --> usually, take average, but biologically is unplausible that updates are averaged across batches, so sum
     
   av_f_rate = learning_utils.compute_firing_rate(z=z, trial_length=trial_length)
   f_target = f_target / 1000 # f_target is given in Hz, bu av_f_rate is spikes/ms --> Bellec 2020 used the f_reg also in spikes/ms
@@ -531,10 +531,10 @@ def train_and_evaluate(cfg) -> TrainState:
     
     layer_names = ["Input layer", "Recurrent layer", "Readout layer"]
     plots.plot_LSNN_weights(state,layer_names=layer_names,
-                       save_path=os.path.join(figures_directory, "weights"))
+                       save_path=os.path.join(figures_directory, "weights.svg"))
   
     
-    plots.plot_weights_spatially_indexed(state, cfg.net_arch.gridshape,os.path.join(figures_directory, "spatially_weights"))
+    plots.plot_weights_spatially_indexed(state, cfg.net_arch.gridshape,os.path.join(figures_directory, "spatially_weights.svg"))
     
     #
     fig_train, axs_train = plt.subplots(2, 2, figsize=(12, 10))
@@ -575,7 +575,7 @@ def train_and_evaluate(cfg) -> TrainState:
     fig_train.tight_layout()
 
     # Save the figure
-    fig_train.savefig(os.path.join(figures_directory, "training"))
+    fig_train.savefig(os.path.join(figures_directory, "training.svg"), format="svg")
     plt.close(fig_train)
 
     # plot task and model
@@ -610,7 +610,7 @@ def train_and_evaluate(cfg) -> TrainState:
     
     fig1.suptitle("Example 1: " + cfg.save_paths.condition)
     fig1.tight_layout()
-    fig1.savefig(os.path.join(figures_directory, "example_1"))      
+    fig1.savefig(os.path.join(figures_directory, "example_1.svg"), format="svg")      
     plt.close(fig1)
 
     if cfg.train_params.test_mini_batch_size > 2:
@@ -630,7 +630,7 @@ def train_and_evaluate(cfg) -> TrainState:
     
       fig2.suptitle("Example 2: " + cfg.save_paths.condition)
       fig2.tight_layout()
-      fig2.savefig(os.path.join(figures_directory, "example_2"))      
+      fig2.savefig(os.path.join(figures_directory, "example_2.svg"), format="svg")      
       plt.close(fig2)
 
 
@@ -650,7 +650,7 @@ def train_and_evaluate(cfg) -> TrainState:
 
       fig3.suptitle("Example 3: " + cfg.save_paths.condition)
       fig3.tight_layout()
-      fig3.savefig(os.path.join(figures_directory, "example_3"))   
+      fig3.savefig(os.path.join(figures_directory, "example_3.svg"), format="svg")   
       plt.close(fig3)
 
     if cfg.train_params.test_grads:
