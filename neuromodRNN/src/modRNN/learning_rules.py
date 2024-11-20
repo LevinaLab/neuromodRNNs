@@ -163,7 +163,7 @@ def e_prop_online(batch_init_carries:Tuple[Dict[str,Array], Array],
     )
     task_updates, reg_updates = updates    
 
-    return jnp.mean(task_updates[-LS_avail:,:,:], axis=0) + jnp.sum(reg_updates, axis=0)
+    return jnp.mean(task_updates[-LS_avail:,:,:], axis=0) + jnp.sum(reg_updates, axis=0) # for reg update sum, because weigth update already averages across duration
 
 
 
@@ -272,7 +272,7 @@ def neuromod_online(batch_init_carries:Tuple[Dict[str,Array], Array],
     # unpack different type of updates
     task_updates, reg_updates = updates
    
-    return jnp.mean(task_updates[-LS_avail:,:,:], axis=0)  + jnp.sum(reg_updates, axis=0)
+    return jnp.mean(task_updates[-LS_avail:,:,:], axis=0)  + jnp.sum(reg_updates, axis=0)  # for reg update sum, because weigth update already averages across duration
     
 
     
@@ -324,10 +324,9 @@ def output_grads(batch_init_carries: Dict[str,Array], batch_inputs: Tuple[Array,
     grads = jnp.einsum('btor,tbor->ro', jnp.expand_dims(err,3), jnp.expand_dims(crop_trace,2)) # weights have shape (pre, post), so grad should have same shape --> ro)
     
     # average over time and batches
-    
-    batch_size = jnp.shape(crop_trace)[1]
     time = jnp.shape(crop_trace)[0]
-    grads = grads / (batch_size * time)
+    batch_size = jnp.shape(crop_trace)[1]
+    grads = grads / (batch_size*time)
     
     
     return grads
