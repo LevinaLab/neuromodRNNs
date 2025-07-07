@@ -1,0 +1,67 @@
+net_arch:
+  n_neurons_channel: 10
+  n_ALIF: 50
+  n_LIF: 50
+  n_out: 2
+  connectivity_rec_layer: local
+  sigma: 0.012
+  feedback: Symmetric
+  gridshape:
+  - 10
+  - 10
+  n_neuromodulators: 1
+  sparse_input: true
+  sparse_readout: true
+net_params:
+  thr: 0.03
+  tau_m: 20.0
+  tau_out: 20.0
+  tau_adaptation: 2000.0
+  beta: 1.8
+  bias_out: 0.0
+  gamma: 0.3
+  refractory_period: 5
+  w_init_gain:
+  - 1.0
+  - 1.0
+  - 1.0
+  - 1.0
+  dt: 1.0
+  seed: 424242
+  k: 0.0
+  radius: 1
+  input_sparsity: 0.1
+  readout_sparsity: 0.1
+  recurrent_sparsity: 0.1
+train_params:
+  lr: 0.005
+  train_batch_size: 64
+  train_mini_batch_size: 8
+  test_batch_size: 512
+  test_mini_batch_size: 8
+  iterations: 2000
+  stop_criteria: 1.0
+  f_target: 10.0
+  c_reg: 0.05
+  learning_rule: BPTT
+  shuffle: false
+  test_grads: false
+task:
+  task_name: cue_accumulation
+  task_type: classification
+  LS_avail: 150
+  n_cues:
+  - 7
+  seed: 424242
+  min_delay: 1000
+  max_delay: 1001
+  f_input: 40.0
+  f_background: 10.0
+  t_cue: 100
+  t_cue_spacing: 150
+  p: 0.5
+  input_mode: original
+  dt: 1000
+save_paths:
+  experiment_name: bptt_lr_005_creg_050
+  condition: seed_424242
