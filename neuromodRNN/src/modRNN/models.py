@@ -376,7 +376,8 @@ class ReadOut(nn.recurrent.RNNCellBase):
         B_out = self.variable('eligibility params', 'feedback_weights', inits.feedback_weights_initializer(self.feedback_init,
                                                                                                             random.key(self.FeedBack_seed), 
                                                                                                             (jnp.shape(z)[-1], self.n_out),
-                                                                                                            w_out, self.feedback, gain=self.gain[1]
+                                                                                                            w_out, self.feedback, gain=self.gain[1],
+                                                                                                            sparsity=self.sparsity
                                                                                                             )  #n_rec, n_out
         )            
 
@@ -502,7 +503,7 @@ class LSSN(nn.Module):
 
     # Readout params
     tau_out: float = 20  # Time constant for the output layer (ms).
-    feedback: str = "Symmetric"  # Type of feedback ('Symmetric' or 'Random').
+    feedback: str = "Symmetric"  # Type of feedback ('Symmetric' or 'Random', "Random_sparse").
     readout_sparsity: float = 0.1 # between 0 and 1, sparsity of readout connections (only used if sparse_connectivity is True)
 
 
