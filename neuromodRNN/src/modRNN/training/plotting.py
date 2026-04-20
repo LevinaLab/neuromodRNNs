@@ -15,10 +15,10 @@ from typing import Dict, List
  
 import matplotlib.pyplot as plt
 from jax import numpy as jnp
- 
-from .. import learning_utils
-from .. import plots
-from .task_spec import TaskSpec
+
+from src.modRNN import learning_utils
+from src.modRNN import plots
+from src.modRNN.training.task_spec import TaskSpec 
  
  
 def plot_training_curves(

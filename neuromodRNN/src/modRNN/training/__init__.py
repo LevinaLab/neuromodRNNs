@@ -11,14 +11,14 @@ Typical use from a task-specific train script:
         train_and_evaluate(cfg, spec)
 """
  
-from .task_spec import TaskSpec
-from .common import (
+from src.modRNN.training.task_spec import TaskSpec
+from src.modRNN.training.common import (
     TrainStateEProp,
     model_from_config,
     create_train_state,
     train_and_evaluate,
 )
- 
+
 __all__ = [
     "TaskSpec",
     "TrainStateEProp",
@@ -26,3 +26,4 @@ __all__ = [
     "create_train_state",
     "train_and_evaluate",
 ]
+
