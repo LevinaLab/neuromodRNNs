@@ -31,10 +31,10 @@ from flax.training import train_state
 from jax import numpy as jnp
 from jax import random
 
-from ..models import LSSN
-from .. import learning_rules
-from .task_spec import TaskSpec
-from . import plotting
+from src.modRNN.models import LSSN
+from src.modRNN import learning_rules
+from src.modRNN.training.task_spec import TaskSpec
+from src.modRNN.training import plotting
 
 from flax.typing import Array, PRNGKey
 

@@ -18,7 +18,7 @@ import matplotlib.pyplot as plt
 from jax import numpy as jnp
 from optax import losses
  
-from .. import learning_rules
+from src.modRNN import learning_rules
 from flax.typing import Array, PRNGKey
  
  
