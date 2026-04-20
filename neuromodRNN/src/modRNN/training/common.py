@@ -34,7 +34,11 @@ from jax import random
 from src.modRNN.models import LSSN
 from src.modRNN import learning_rules
 from src.modRNN.training.task_spec import TaskSpec
-from src.modRNN.training import plotting
+from src.modRNN.training.plotting import (
+    plot_training_curves,
+    plot_final_weights,
+    log_firing_rate_stats,
+)
 
 from flax.typing import Array, PRNGKey
 
@@ -478,9 +482,9 @@ def train_and_evaluate(cfg, spec: TaskSpec) -> TrainState:
 
     # -- Save + plot ------------------------------------------------------
     _save_history(history, output_dir)
-    plotting.plot_training_curves(history, spec, output_dir)
-    plotting.plot_final_weights(state, cfg, output_dir)
-    plotting.log_firing_rate_stats(state, eval_batch[0], logger)
+    plot_training_curves(history, spec, output_dir)
+    plot_final_weights(state, cfg, output_dir)
+    log_firing_rate_stats(state, eval_batch[0], logger)
     spec.plot_examples(
         cfg=cfg, state=state, eval_batch=eval_batch,
         output_dir=output_dir, n_examples=spec.plot_example_count,
