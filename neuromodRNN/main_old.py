@@ -13,7 +13,7 @@ from jax import config, numpy as jnp
 
 file_dir = str(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(file_dir)
-from src.train import train_cue_accumulation_old, train_delayed_match_old, train_pattern_generation
+from src.train import train_cue_accumulation_old, train_delayed_match_old, train_pattern_generation_old
 
 from src.config.config_dataclass import NetworkArchitecture, NetworkParams, TrainParams, SaveFiles
 from src.config.tasks_dataclass import Task, register_configs
@@ -116,7 +116,7 @@ def main(cfg: ConfigTrain) -> None:
         train_delayed_match_old.train_and_evaluate(cfg)
     
     elif cfg.task.task_name == "pattern_generation":
-        train_pattern_generation.train_and_evaluate(cfg)
+        train_pattern_generation_old.train_and_evaluate(cfg)
         
 
     else:
