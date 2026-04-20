@@ -12,8 +12,8 @@ from flax.linen import softmax
 from jax import numpy as jnp
 from optax import losses
  
-from .. import learning_utils, plots, tasks
-from ..training import TaskSpec, train_and_evaluate
+from src.modRNN import learning_utils, plots, tasks
+from src.modRNN.training import TaskSpec, train_and_evaluate
 from flax.typing import Array
  
  
