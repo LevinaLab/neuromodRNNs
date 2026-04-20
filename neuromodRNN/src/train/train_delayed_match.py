@@ -114,7 +114,7 @@ def _plot_examples(*, cfg, state, eval_batch, output_dir: str, n_examples: int) 
         fig.suptitle(f"Example {i + 1}: {cfg.save_paths.condition}")
         fig.tight_layout()
         fig.savefig(
-            os.path.join(figures_dir, f"example_{i + 1}.svg"), format="svg",
+            os.path.join(figures_dir, f"example_{i + 1}.png"), format="png",
         )
         plt.close(fig)
  
