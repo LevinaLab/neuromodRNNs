@@ -532,5 +532,5 @@ def _save_history(history: Dict[str, List], output_dir: str) -> None:
     train_info_dir = os.path.join(output_dir, 'train_info')
     os.makedirs(train_info_dir, exist_ok=True)
     for name, values in history.items():
-        with open(os.path.join(train_info_dir, f'{name}.pkl'), 'wb') as f:
+        with open(os.path.join(train_info_dir, f'{name}_training.pkl'), 'wb') as f:
             pickle.dump(values, f, pickle.HIGHEST_PROTOCOL)
