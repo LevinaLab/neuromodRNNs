@@ -5,7 +5,7 @@ Design note — training data is fixed
 Unlike the classification tasks (cue_accumulation, delayed_match) which
 generate fresh training batches every epoch, pattern_generation uses a
 *single fixed realization* throughout training. The target pattern and
-the Poisson input realization are determined once by `cfg.task.seed` and
+the Poisson input realizations are determined once by `cfg.task.seed` and
 replayed identically every epoch. Different `cfg.task.seed` values give
 different realizations, but within a single run, every epoch sees the
 same data.

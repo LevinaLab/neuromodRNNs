@@ -49,9 +49,7 @@ def _generate_batches(cfg, *, n_batches: int, batch_size: int, seed: int):
 # Batch generators (train / eval / test)
 # =============================================================================
 # Cache the per-epoch seed sequence so it's computed once per (seed, n_iter)
-# pair. This mirrors exactly what the pre-refactor code did: pre-generate the
-# array of seeds once, then index by epoch. Using lru_cache rather than a
-# module-level dict so it's resilient to being called with unhashable types.
+# pair. 
 @lru_cache(maxsize=8)
 def _cached_epoch_seeds(master_seed: int, n_epochs: int):
     return epoch_seed_sequence(master_seed, n_epochs)

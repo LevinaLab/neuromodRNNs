@@ -1,14 +1,4 @@
-"""
-Shared end-of-training plotting utilities.
-
-Plots that are identical across all tasks:
-  * training / evaluation metric curves
-  * learned weights (hist + spatial layout)
-  * firing-rate stats (logged, not plotted)
-
-Per-task example figures (spikes + task inputs + outputs) are per-task
-and dispatched through `TaskSpec.plot_examples`.
-"""
+"""Shared end-of-training plotting utilities."""
 
 from __future__ import annotations
 

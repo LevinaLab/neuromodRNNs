@@ -27,32 +27,6 @@ class TaskSpec:
     """
     Task-specific hooks used by the shared training pipeline.
  
-    Training data flow
-    ------------------
-    Two callables control batch generation, because training and evaluation
-    have different requirements:
- 
-      * `make_train_batch(cfg, *, epoch)` returns batches for a single
-        training epoch. The `epoch` argument lets each task decide whether
-        to vary the data across epochs (classification tasks typically do;
-        pattern_generation does not, by design).
-      * `make_eval_batch(cfg)` returns batches for the fixed evaluation set,
-        generated once at the start of training. All tasks use a single
-        fixed realization for eval.
- 
-    Separating the two makes each task's data strategy explicit at the
-    point that matters (the task file), rather than hard-coded in the
-    shared loop.
- 
-    Metric file naming
-    ------------------
-    By default, metric histories are saved as `<metric_name>_training.pkl`
-    and `<metric_name>_eval.pkl`. If a task needs different filenames (for
-    backwards compatibility with existing analysis scripts, for example),
-    `metric_filenames` provides a per-metric override. Keys are metric
-    names as listed in `metric_names`; values are the display name used in
-    filenames.
- 
     Attributes
     ----------
     name

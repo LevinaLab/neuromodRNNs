@@ -1,13 +1,6 @@
 """
 Shared training pipeline for all LSSN tasks.
 
-Contains everything that is the same between tasks:
-  * model construction from a Hydra config
-  * TrainState setup and optimizer config (including grad accumulation)
-  * train_step / train_epoch / eval_step / evaluate_model
-  * the main `train_and_evaluate` loop, including early stopping and
-    final plot/save bookkeeping
-
 Task-specific pieces (batch generation, loss, metrics, visualization) are
 passed in via a `TaskSpec` object (see `task_spec.py`).
 """
@@ -50,9 +43,9 @@ def model_from_config(cfg) -> LSSN:
     """
     Build an LSSN model from a Hydra config.
 
-    Note: `beta` and `b_out` are not threaded through because their
-    functionality is only partially implemented and they only work correctly
-    at their default values.
+    Note: `b_out` are not threaded through because its
+    functionality is only partially implemented and it only works correctly
+    at its default value=0.
     """
     master_key = random.PRNGKey(cfg.net_params.seed)
     subkey, _ = random.split(master_key)
@@ -355,8 +348,6 @@ def train_and_evaluate(cfg, spec: TaskSpec) -> TrainState:
     output_dir = hydra.core.hydra_config.HydraConfig.get().runtime.output_dir
 
     # -- Evaluation set is fixed for the whole run ------------------------
-    # All three tasks use a single fixed realization for eval. The task
-    # knows how to seed this appropriately (typically from cfg.task.seed).
     eval_batch = list(spec.make_eval_batch(cfg))
 
     # -- Metric histories -------------------------------------------------
@@ -372,9 +363,6 @@ def train_and_evaluate(cfg, spec: TaskSpec) -> TrainState:
     for epoch in range(1, cfg.train_params.iterations + 1):
         sub_shuffle_key, shuffle_key = random.split(shuffle_key)
 
-        # The task decides whether to vary data across epochs. Classification
-        # tasks derive a per-epoch seed; pattern_generation ignores `epoch`
-        # and uses a fixed seed by design.
         train_batches = spec.make_train_batch(cfg, epoch=epoch)
 
         logger.info("\t Starting Epoch: %d", epoch)
