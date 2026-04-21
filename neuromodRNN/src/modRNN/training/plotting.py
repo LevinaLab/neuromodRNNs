@@ -47,7 +47,7 @@ def plot_training_curves(
         # Pretty label: "normalized_loss" -> "Normalized Loss"
         label = name.replace("_", " ").title()
  
-        axs[0, col].plot(iterations, history[name], label=f'Training {label}')
+        axs[0, col].plot(iterations, history[f"{name}_training"], label=f'Training {label}')
         axs[0, col].set_title(f'Training {label}')
         axs[0, col].set_xlabel('Iterations')
         axs[0, col].set_ylabel(label)

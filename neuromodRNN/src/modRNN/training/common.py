@@ -399,7 +399,7 @@ def train_and_evaluate(cfg, spec: TaskSpec) -> TrainState:
     ))
 
     # -- Metric histories (one list per metric, plus iterations) ----------
-    history: Dict[str, List] = {name: [] for name in spec.metric_names}
+    history: Dict[str, List] = {f"{name}_training": [] for name in spec.metric_names}
     history.update({f"{name}_eval": [] for name in spec.metric_names})
     history["iterations"] = []
 
@@ -453,7 +453,7 @@ def train_and_evaluate(cfg, spec: TaskSpec) -> TrainState:
 
             # metric names are "loss" and "display_metric", where display_metric can be accuray, or MSE for example
             for name in spec.metric_names:
-                history[name].append(getattr(train_metrics, name))
+                history[f"{name}_training"].append(getattr(train_metrics, name))
                 history[f"{name}_eval"].append(getattr(eval_metrics, name))
             history["iterations"].append(epoch - 1)
 
@@ -532,5 +532,5 @@ def _save_history(history: Dict[str, List], output_dir: str) -> None:
     train_info_dir = os.path.join(output_dir, 'train_info')
     os.makedirs(train_info_dir, exist_ok=True)
     for name, values in history.items():
-        with open(os.path.join(train_info_dir, f'{name}'), 'wb') as f:
+        with open(os.path.join(train_info_dir, f'{name}.pkl'), 'wb') as f:  
             pickle.dump(values, f, pickle.HIGHEST_PROTOCOL)
