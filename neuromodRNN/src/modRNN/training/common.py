@@ -1,18 +1,15 @@
 """
 Shared training pipeline for all LSSN tasks.
 
-This module contains everything that is the *same* between the three tasks
-(cue_accumulation, delayed_match, pattern_generation):
-
+Contains everything that is the same between tasks:
   * model construction from a Hydra config
   * TrainState setup and optimizer config (including grad accumulation)
   * train_step / train_epoch / eval_step / evaluate_model
   * the main `train_and_evaluate` loop, including early stopping and
     final plot/save bookkeeping
 
-The pieces that *do* differ between tasks — batch generators, loss functions,
-metric definitions, and visualization — are passed in via a `TaskSpec` object
-(see `task_spec.py`). The training loop itself is agnostic to the task.
+Task-specific pieces (batch generation, loss, metrics, visualization) are
+passed in via a `TaskSpec` object (see `task_spec.py`).
 """
 
 from __future__ import annotations
@@ -53,13 +50,10 @@ def model_from_config(cfg) -> LSSN:
     """
     Build an LSSN model from a Hydra config.
 
-    Note: `b_out` is not currently threaded through because their
+    Note: `beta` and `b_out` are not threaded through because their
     functionality is only partially implemented and they only work correctly
-    at their default values. Weight and carry initializers can be modified on
-    the returned model before training begins, if needed.
+    at their default values.
     """
-    # Derive per-component seeds from the master seed, so changing
-    # cfg.net_params.seed changes *all* network-side RNGs coherently.
     master_key = random.PRNGKey(cfg.net_params.seed)
     subkey, _ = random.split(master_key)
     (feedback_seed,
@@ -81,7 +75,7 @@ def model_from_config(cfg) -> LSSN:
         sparse_readout=cfg.net_arch.sparse_readout,
         connectivity_rec_layer=cfg.net_arch.connectivity_rec_layer,
         feedback=cfg.net_arch.feedback,
-        # RSNN neurons params
+        # ALIF params
         thr=cfg.net_params.thr,
         tau_m=cfg.net_params.tau_m,
         tau_adaptation=cfg.net_params.tau_adaptation,
@@ -106,7 +100,6 @@ def model_from_config(cfg) -> LSSN:
         cell_loc_seed=cell_loc_seed,
         # weight init
         gain=cfg.net_params.w_init_gain,
-        # Simulation
         dt=cfg.net_params.dt,
     )
 
@@ -115,17 +108,7 @@ def model_from_config(cfg) -> LSSN:
 # TrainState
 # =============================================================================
 class TrainStateEProp(TrainState):
-    """TrainState extended with e-prop-specific fields.
-
-    Besides the standard (params, tx, opt_state), we carry:
-      * eligibility_params: scalars/arrays needed to compute eligibility traces
-        (alpha, rho, kappa, betas, thr, gamma, feedback weights...).
-      * spatial_params: connectivity/sparsity masks and diffusion kernel. Not
-        learned; kept in the state so they're pytree-mapped alongside params.
-      * init_eligibility_carries: initial eligibility vectors,
-        used as the starting carry of the eligibility-trace scan each batch.
-      * init_error_grid: initial error grid for the diffusion rule.
-    """
+    """TrainState extended with e-prop-specific fields."""
     eligibility_params: Dict[str, Array]
     spatial_params: Dict[str, Array]
     init_eligibility_carries: Dict[str, Array]
@@ -155,16 +138,13 @@ def create_train_state(
     Create the initial TrainState.
 
     If batch_size > mini_batch_size, wrap the optimizer in `optax.MultiSteps`
-    so that gradients are accumulated across (batch_size / mini_batch_size)
-    micro-batches before each weight update. This lets us use large effective
-    batch sizes without running out of memory per step.
+    so gradients are accumulated across (batch_size / mini_batch_size)
+    micro-batches before each weight update.
     """
     key_params, key_elig, key_grid = random.split(rng, 3)
     params, eligibility_params, spatial_params = _get_initial_variables(
         key_params, model, input_shape
     )
-
-    # By default, both are initialized as 0-valued arrays
     init_eligibility_carries = model.initialize_eligibility_carry(key_elig, input_shape)
     init_error_grid = model.initialize_grid(rng=key_grid, input_shape=input_shape)
 
@@ -192,17 +172,12 @@ def create_train_state(
 def normalize_batch_metrics(batch_metrics: Sequence[Any], metric_names: Sequence[str]):
     """
     Sum each metric across batches and divide by total count.
-
-    Works for any `Metrics` PyTreeNode class whose fields are in `metric_names`
-    plus a `count` field. This is why we require `metric_names[0] == "loss"`
-    in TaskSpec — having a convention lets us generalize.
     """
     metric_cls = type(batch_metrics[0])
     total_count = np.sum([m.count for m in batch_metrics])
     kwargs = {}
     for name in metric_names:
         total = np.sum([getattr(m, name) for m in batch_metrics])
-        # .item() to convert np scalar -> python scalar for clean logging
         kwargs[name] = total.item() / total_count
     return metric_cls(**kwargs)
 
@@ -214,6 +189,23 @@ def _format_log_line(phase: str, epoch: int, metrics, spec: TaskSpec) -> str:
         for name, scale in zip(spec.metric_names, spec.log_scale)
     ]
     return spec.log_format % (phase, epoch, *values)
+
+
+# =============================================================================
+# Seed helper for per-epoch data
+# =============================================================================
+def epoch_seed_sequence(master_seed: int, n_epochs: int):
+    """
+    Deterministically derive a sequence of per-epoch seeds from a master seed.
+
+    Returns a jnp array of shape (n_epochs,). Cast individual values with
+    `int(seq[i])` before passing to numpy-based task generators.
+    """
+    return random.randint(
+        random.PRNGKey(master_seed),
+        (n_epochs,),
+        10_000, 10_000_000,
+    )
 
 
 # =============================================================================
@@ -232,13 +224,7 @@ def train_step(
     shuffle_key: PRNGKey,
     compute_metrics_fn: Callable,
 ) -> Tuple[TrainState, Any, Dict]:
-    """Train for a single micro-batch step.
-
-    Returns (new_state, metrics, grads). Grads are returned only for
-    diagnostic plotting downstream — the actual weight update has already
-    happened via state.apply_gradients.
-    """
-    # LS_avail gates which time steps contribute to the task loss.
+    """Train for a single micro-batch step."""
     y, grads = learning_rules.compute_grads(
         batch=batch,
         state=state,
@@ -252,8 +238,6 @@ def train_step(
         key=shuffle_key,
     )
     new_state = state.apply_gradients(grads=grads)
-
-    # Metrics over the LS-available window only — matches the training signal.
     metrics = compute_metrics_fn(
         labels=batch['label'][:, -LS_avail:],
         predictions=y[:, -LS_avail:, :],
@@ -276,7 +260,7 @@ def train_epoch(
     shuffle_key: PRNGKey,
     spec: TaskSpec,
 ) -> Tuple[TrainState, Any, Dict]:
-    """Run one training epoch. Accumulates grads for diagnostic plotting."""
+    """Run one training epoch."""
     batch_metrics: List[Any] = []
     accumulated_grads = jax.tree_util.tree_map(jnp.zeros_like, state.params)
 
@@ -289,8 +273,6 @@ def train_epoch(
             shuffle=shuffle, shuffle_key=shuffle_key,
         )
         batch_metrics.append(metrics)
-        # Note: actual parameter update is already handled by optax.MultiSteps
-        # if grad_accum is enabled. This accumulation is purely for plotting.
         accumulated_grads = jax.tree_util.tree_map(
             lambda a, g: a + g, accumulated_grads, grads
         )
@@ -328,7 +310,7 @@ def evaluate_model(
     LS_avail: int,
     spec: TaskSpec,
 ):
-    """Evaluate on a dataset (an iterable of batches)."""
+    """Evaluate on an iterable of batches."""
     batch_metrics = [eval_step_fn(state, b, LS_avail) for b in batches]
     batch_metrics = jax.device_get(batch_metrics)
     metrics = normalize_batch_metrics(batch_metrics, spec.metric_names)
@@ -342,18 +324,6 @@ def evaluate_model(
 def train_and_evaluate(cfg, spec: TaskSpec) -> TrainState:
     """
     Run the full training + evaluation loop for a task described by `spec`.
-
-    The loop:
-      1. Builds the model + train state.
-      2. Generates a fixed evaluation set (same seed every time).
-      3. At each epoch: generates a fresh training set, runs `train_epoch`.
-      4. Every 25 epochs: evaluates, records metrics, checks early-stop
-         (three consecutive passes required).
-      5. At the end: saves per-epoch metric histories as pickles, saves
-         weight figures, training-curve figures, and task-specific example
-         figures.
-
-    Returns the final TrainState.
     """
     # -- Setup -------------------------------------------------------------
     n_in = spec.input_dim_from_cfg(cfg)
@@ -371,10 +341,6 @@ def train_and_evaluate(cfg, spec: TaskSpec) -> TrainState:
         mini_batch_size=cfg.train_params.train_mini_batch_size,
     )
 
-    # jit the step functions once. `compute_metrics_fn` is bound up-front via
-    # functools.partial so it disappears from the jitted call signature —
-    # otherwise jax.jit can't hash it, and static_argnames can't find its
-    # target argument names on a `**kwargs` lambda.
     train_step_fn = jax.jit(
         partial(train_step, compute_metrics_fn=spec.compute_metrics),
         static_argnames=["LS_avail", "learning_rule", "task", "shuffle"],
@@ -384,47 +350,32 @@ def train_and_evaluate(cfg, spec: TaskSpec) -> TrainState:
         static_argnames=["LS_avail"],
     )
 
-    # `tree_util.Partial` makes the loss function a pytree leaf, which is
-    # needed to pass a Callable into a jitted function.
     closure = jax.tree_util.Partial(spec.optimization_loss)
 
     output_dir = hydra.core.hydra_config.HydraConfig.get().runtime.output_dir
 
     # -- Evaluation set is fixed for the whole run ------------------------
-    eval_batch = list(spec.make_batch(
-        cfg,
-        n_batches=cfg.train_params.test_batch_size,
-        batch_size=cfg.train_params.test_mini_batch_size,
-        seed=cfg.task.seed,
-    ))
+    # All three tasks use a single fixed realization for eval. The task
+    # knows how to seed this appropriately (typically from cfg.task.seed).
+    eval_batch = list(spec.make_eval_batch(cfg))
 
-    # -- Metric histories (one list per metric, plus iterations) ----------
+    # -- Metric histories -------------------------------------------------
     history: Dict[str, List] = {f"{name}_training": [] for name in spec.metric_names}
     history.update({f"{name}_eval": [] for name in spec.metric_names})
     history["iterations"] = []
 
     # -- Training loop ----------------------------------------------------
     logger.info('Starting training...')
-    # Pre-generate per-epoch seeds so training data is reproducible.
-    train_task_seeds = random.randint(
-        random.PRNGKey(cfg.task.seed),
-        (cfg.train_params.iterations,),
-        10_000, 10_000_000,
-    )
 
     final_epoch = 0
     stopped_early = False
-    for epoch, train_seed in zip(
-        range(1, cfg.train_params.iterations + 1), train_task_seeds
-    ):
+    for epoch in range(1, cfg.train_params.iterations + 1):
         sub_shuffle_key, shuffle_key = random.split(shuffle_key)
 
-        train_batches = spec.make_batch(
-            cfg,
-            n_batches=cfg.train_params.train_batch_size,
-            batch_size=cfg.train_params.train_mini_batch_size,
-            seed=int(train_seed),
-        )
+        # The task decides whether to vary data across epochs. Classification
+        # tasks derive a per-epoch seed; pattern_generation ignores `epoch`
+        # and uses a fixed seed by design.
+        train_batches = spec.make_train_batch(cfg, epoch=epoch)
 
         logger.info("\t Starting Epoch: %d", epoch)
         state, train_metrics, _ = train_epoch(
@@ -450,8 +401,6 @@ def train_and_evaluate(cfg, spec: TaskSpec) -> TrainState:
                 eval_step_fn, state, eval_batch, epoch,
                 LS_avail=cfg.task.LS_avail, spec=spec,
             )
-
-            # metric names are "loss" and "display_metric", where display_metric can be accuray, or MSE for example
             for name in spec.metric_names:
                 history[f"{name}_training"].append(getattr(train_metrics, name))
                 history[f"{name}_eval"].append(getattr(eval_metrics, name))
@@ -481,7 +430,7 @@ def train_and_evaluate(cfg, spec: TaskSpec) -> TrainState:
     history["iterations"].append(final_epoch)
 
     # -- Save + plot ------------------------------------------------------
-    _save_history(history, output_dir)
+    _save_history(history, output_dir, spec)
     plot_training_curves(history, spec, output_dir)
     plot_final_weights(state, cfg, output_dir)
     log_firing_rate_stats(state, eval_batch[0], logger)
@@ -505,15 +454,14 @@ def _early_stop_confirmed(
     spec: TaskSpec, cfg, state, eval_step_fn, epoch: int
 ) -> bool:
     """
-    Confirm early stopping by checking `stop_criteria` on 3 fresh test batches.
+    Confirm early stopping by checking `stop_criteria` on 3 test batches.
+
+    The task decides whether these three batches are different from each
+    other (e.g. classification tasks use three different seeds) or the
+    same (pattern_generation).
     """
     for i in range(3):
-        test_batch = list(spec.make_batch(
-            cfg,
-            n_batches=cfg.train_params.test_batch_size,
-            batch_size=cfg.train_params.test_mini_batch_size,
-            seed=cfg.task.seed + i + 1,
-        ))
+        test_batch = list(spec.make_test_batch(cfg, offset=i))
         test_metrics = evaluate_model(
             eval_step_fn, state, test_batch, epoch,
             LS_avail=cfg.task.LS_avail, spec=spec,
@@ -528,9 +476,11 @@ def _early_stop_confirmed(
 # History saving
 # =============================================================================
 def _save_history(history: Dict[str, List], output_dir: str) -> None:
-    """Pickle each metric history to `output_dir/train_info/<name>.pkl`."""
+    """Pickle each metric history to `output_dir/train_info/<key>.pkl`."""
     train_info_dir = os.path.join(output_dir, 'train_info')
     os.makedirs(train_info_dir, exist_ok=True)
-    for name, values in history.items():
-        with open(os.path.join(train_info_dir, f'{name}.pkl'), 'wb') as f:  
+    for history_key, values in history.items():
+        with open(os.path.join(train_info_dir, f'{history_key}.pkl'), 'wb') as f:
             pickle.dump(values, f, pickle.HIGHEST_PROTOCOL)
+
+

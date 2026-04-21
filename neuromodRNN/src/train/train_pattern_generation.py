@@ -1,4 +1,18 @@
-"""Train the pattern generation task (regression)."""
+"""Train the pattern generation task (regression).
+ 
+Design note — training data is fixed
+-------------------------------------
+Unlike the classification tasks (cue_accumulation, delayed_match) which
+generate fresh training batches every epoch, pattern_generation uses a
+*single fixed realization* throughout training. The target pattern and
+the Poisson input realization are determined once by `cfg.task.seed` and
+replayed identically every epoch. Different `cfg.task.seed` values give
+different realizations, but within a single run, every epoch sees the
+same data.
+
+All three batch-generator methods below consequently use `cfg.task.seed`
+rather than deriving per-epoch seeds.
+"""
  
 from __future__ import annotations
  
@@ -17,29 +31,67 @@ from flax.typing import Array
  
  
 # =============================================================================
-# Task-specific pieces
+# Shared task-specific helpers
 # =============================================================================
  
 def _input_dim(cfg) -> int:
-    # Single input population emits Poisson noise; signal emerges from network.
     return cfg.net_arch.n_neurons_channel
  
  
-def _make_batch(cfg, *, n_batches: int, batch_size: int, seed: int):
-    """Thin wrapper that pulls task params out of cfg."""
+def _generate_batches(cfg, *, n_batches: int, batch_size: int):
+    """
+    Single source-of-truth wrapper around tasks.pattern_generation.
+ 
+    Note: seed is always `cfg.task.seed`. See module docstring for rationale.
+    """
     return tasks.pattern_generation(
-        n_batches=n_batches, batch_size=batch_size, seed=seed,
+        n_batches=n_batches, batch_size=batch_size,
+        seed=cfg.task.seed,
         frequencies=cfg.task.frequencies,
         n_population=cfg.net_arch.n_neurons_channel,
         f_input=cfg.task.f_input, trial_dur=cfg.task.trial_dur,
     )
  
  
-def _optimization_loss(logits, labels, z, c_reg, f_target, trial_length):
-    """MSE task loss + firing-rate regularization.
+# =============================================================================
+# Batch generators (train / eval / test) — all share the same realization
+# =============================================================================
  
-    `logits` here is the raw readout (no softmax, because this is regression).
-    """
+def _make_train_batch(cfg, *, epoch: int):
+    """Training batches are identical across epochs by design."""
+    del epoch  # intentionally unused
+    return _generate_batches(
+        cfg,
+        n_batches=cfg.train_params.train_batch_size,
+        batch_size=cfg.train_params.train_mini_batch_size,
+    )
+ 
+ 
+def _make_eval_batch(cfg):
+    """Evaluation batch — same realization as training (intentional)."""
+    return _generate_batches(
+        cfg,
+        n_batches=cfg.train_params.test_batch_size,
+        batch_size=cfg.train_params.test_mini_batch_size,
+    )
+ 
+ 
+def _make_test_batch(cfg, *, offset: int):
+    """Early-stopping test batch — same realization regardless of offset."""
+    del offset  # intentionally unused
+    return _generate_batches(
+        cfg,
+        n_batches=cfg.train_params.test_batch_size,
+        batch_size=cfg.train_params.test_mini_batch_size,
+    )
+ 
+ 
+# =============================================================================
+# Loss / metrics
+# =============================================================================
+ 
+def _optimization_loss(logits, labels, z, c_reg, f_target, trial_length):
+    """MSE task loss + firing-rate regularization."""
     if labels.ndim == 2:
         labels = jnp.expand_dims(labels, axis=-1)
     task_loss = 0.5 * jnp.mean(losses.squared_error(targets=labels, predictions=logits))
@@ -59,17 +111,17 @@ class Metrics(struct.PyTreeNode):
  
  
 def _compute_metrics(*, labels: Array, predictions: Array) -> Metrics:
-    """MSE and target-normalized MSE, summed over batches.
+    """
+    MSE and target-normalized MSE, summed over batches.
  
-    `labels` here are the regression targets (not class labels). The arg name
-    stays `labels` for uniformity with the shared `train_step` signature.
+    `labels` are regression targets here; the arg name matches the shared
+    `train_step` signature for uniformity with classification tasks.
     """
     targets = labels
     if targets.ndim == 2:
         targets = jnp.expand_dims(targets, axis=-1)
  
     sq_err = losses.squared_error(targets=targets, predictions=predictions)
-    # Normalize each trial by the target's squared-sum (targets are zero-mean).
     squared_sum_targets = jnp.sum(jnp.square(targets), axis=1)
     normalized = sq_err / squared_sum_targets[:, None, :]
  
@@ -81,8 +133,11 @@ def _compute_metrics(*, labels: Array, predictions: Array) -> Metrics:
     )
  
  
+# =============================================================================
+# Example plots
+# =============================================================================
+ 
 def _plot_examples(*, cfg, state, eval_batch, output_dir: str, n_examples: int) -> None:
-    """Plot example trials: Poisson inputs, recurrent spikes, prediction vs target."""
     figures_dir = os.path.join(output_dir, 'figures')
     os.makedirs(figures_dir, exist_ok=True)
  
@@ -113,7 +168,7 @@ def _plot_examples(*, cfg, state, eval_batch, output_dir: str, n_examples: int) 
         fig.suptitle(f"Example {i + 1}: {cfg.save_paths.condition}")
         fig.tight_layout()
         fig.savefig(
-            os.path.join(figures_dir, f"example_{i + 1}.png"), format="png",
+            os.path.join(figures_dir, f"example_{i + 1}.svg"), format="svg",
         )
         plt.close(fig)
  
@@ -125,7 +180,9 @@ SPEC = TaskSpec(
     name="pattern_generation",
     task_type="regression",
     input_dim_from_cfg=_input_dim,
-    make_batch=_make_batch,
+    make_train_batch=_make_train_batch,
+    make_eval_batch=_make_eval_batch,
+    make_test_batch=_make_test_batch,
     optimization_loss=_optimization_loss,
     metrics_class=Metrics,
     compute_metrics=_compute_metrics,
@@ -140,5 +197,5 @@ SPEC = TaskSpec(
  
  
 def train_and_evaluate_entry(cfg):
-    """Entry point called from main.py."""
     return train_and_evaluate(cfg, SPEC)
+ 

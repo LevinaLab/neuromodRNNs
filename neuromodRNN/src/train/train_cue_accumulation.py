@@ -1,14 +1,10 @@
-"""Train the cue accumulation task.
- 
-This file supplies the task-specific bits (batch generator, loss, metrics,
-example plots) and hands them to the shared training pipeline. The actual
-training loop lives in `modRNN.training.common`.
-"""
+"""Train the cue accumulation task."""
  
 from __future__ import annotations
  
 import os
-from typing import Optional, Sequence
+from functools import lru_cache
+from typing import Optional
  
 import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
@@ -16,13 +12,15 @@ from flax import struct
 from flax.linen import softmax
 from jax import numpy as jnp
 from optax import losses
+ 
 from src.modRNN import learning_utils, plots, tasks
 from src.modRNN.training import TaskSpec, train_and_evaluate
+from src.modRNN.training.common import epoch_seed_sequence
 from flax.typing import Array
  
  
 # =============================================================================
-# Task-specific pieces
+# Shared task-specific helpers
 # =============================================================================
  
 def _input_dim(cfg) -> int:
@@ -34,8 +32,8 @@ def _input_dim(cfg) -> int:
     raise ValueError(f"Unknown input_mode: {cfg.task.input_mode!r}")
  
  
-def _make_batch(cfg, *, n_batches: int, batch_size: int, seed: int):
-    """Thin wrapper that pulls task params out of cfg."""
+def _generate_batches(cfg, *, n_batches: int, batch_size: int, seed: int):
+    """Single source-of-truth wrapper around tasks.cue_accumulation_task."""
     return tasks.cue_accumulation_task(
         n_batches=n_batches, batch_size=batch_size, seed=seed,
         n_cues=cfg.task.n_cues,
@@ -47,11 +45,59 @@ def _make_batch(cfg, *, n_batches: int, batch_size: int, seed: int):
     )
  
  
+# =============================================================================
+# Batch generators (train / eval / test)
+# =============================================================================
+# Cache the per-epoch seed sequence so it's computed once per (seed, n_iter)
+# pair. This mirrors exactly what the pre-refactor code did: pre-generate the
+# array of seeds once, then index by epoch. Using lru_cache rather than a
+# module-level dict so it's resilient to being called with unhashable types.
+@lru_cache(maxsize=8)
+def _cached_epoch_seeds(master_seed: int, n_epochs: int):
+    return epoch_seed_sequence(master_seed, n_epochs)
+ 
+ 
+def _make_train_batch(cfg, *, epoch: int):
+    """Training batch varies across epochs, deterministic from cfg.task.seed."""
+    seeds = _cached_epoch_seeds(cfg.task.seed, cfg.train_params.iterations)
+    train_seed = int(seeds[epoch - 1])
+    return _generate_batches(
+        cfg,
+        n_batches=cfg.train_params.train_batch_size,
+        batch_size=cfg.train_params.train_mini_batch_size,
+        seed=train_seed,
+    )
+ 
+ 
+def _make_eval_batch(cfg):
+    """Fixed evaluation set, seeded from cfg.task.seed."""
+    return _generate_batches(
+        cfg,
+        n_batches=cfg.train_params.test_batch_size,
+        batch_size=cfg.train_params.test_mini_batch_size,
+        seed=cfg.task.seed,
+    )
+ 
+ 
+def _make_test_batch(cfg, *, offset: int):
+    """Early-stopping confirmation batch; uses a distinct seed per offset."""
+    return _generate_batches(
+        cfg,
+        n_batches=cfg.train_params.test_batch_size,
+        batch_size=cfg.train_params.test_mini_batch_size,
+        seed=cfg.task.seed + offset + 1,
+    )
+ 
+ 
+# =============================================================================
+# Loss / metrics
+# =============================================================================
+ 
 def _optimization_loss(logits, labels, z, c_reg, f_target, trial_length):
     """Cross-entropy task loss + firing-rate regularization."""
     task_loss = jnp.mean(losses.softmax_cross_entropy(logits=logits, labels=labels))
     av_f_rate = learning_utils.compute_firing_rate(z=z, trial_length=trial_length)
-    f_target_per_ms = f_target / 1000  # Hz -> spikes/ms
+    f_target_per_ms = f_target / 1000
     reg_loss = 0.5 * c_reg * jnp.sum(
         jnp.mean(jnp.square(av_f_rate - f_target_per_ms), axis=0)
     )
@@ -66,21 +112,11 @@ class Metrics(struct.PyTreeNode):
  
  
 def _compute_metrics(*, labels: Array, predictions: Array) -> Metrics:
-    """
-    Compute per-batch metrics.
- 
-    `predictions` here is the unnormalized logits. For accuracy, we
-    accumulate logits over the LS_avail window ("cumulative evidence") and
-    argmax. The labels are constant across time in this task, so we read
-    the label at t=0 for comparison.
-    """
     loss = losses.softmax_cross_entropy(labels=labels, logits=predictions)
     loss = jnp.mean(loss, axis=-1)
- 
     inference = jnp.argmax(jnp.sum(predictions, axis=1), axis=-1)
     label = jnp.argmax(labels[:, 0, :], axis=-1)
     correct = jnp.equal(inference, label)
- 
     return Metrics(
         loss=jnp.sum(loss),
         accuracy=jnp.sum(correct),
@@ -88,8 +124,11 @@ def _compute_metrics(*, labels: Array, predictions: Array) -> Metrics:
     )
  
  
+# =============================================================================
+# Example plots
+# =============================================================================
+ 
 def _plot_examples(*, cfg, state, eval_batch, output_dir: str, n_examples: int) -> None:
-    """Plot the first `n_examples` trials of eval_batch[0]: inputs, spikes, output."""
     figures_dir = os.path.join(output_dir, 'figures')
     os.makedirs(figures_dir, exist_ok=True)
  
@@ -138,7 +177,9 @@ SPEC = TaskSpec(
     name="cue_accumulation",
     task_type="classification",
     input_dim_from_cfg=_input_dim,
-    make_batch=_make_batch,
+    make_train_batch=_make_train_batch,
+    make_eval_batch=_make_eval_batch,
+    make_test_batch=_make_test_batch,
     optimization_loss=_optimization_loss,
     metrics_class=Metrics,
     compute_metrics=_compute_metrics,
@@ -146,12 +187,11 @@ SPEC = TaskSpec(
     early_stop_metric="accuracy",
     early_stop_better="higher",
     log_format="%s epoch %03d loss %.4f accuracy %.2f%%",
-    log_scale=(1.0, 100.0),  # display accuracy as a percentage
+    log_scale=(1.0, 100.0),
     plot_examples=_plot_examples,
     plot_example_count=3,
 )
  
  
 def train_and_evaluate_entry(cfg):
-    """Entry point called from main.py."""
     return train_and_evaluate(cfg, SPEC)

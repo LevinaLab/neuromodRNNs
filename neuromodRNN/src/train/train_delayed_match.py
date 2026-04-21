@@ -3,6 +3,7 @@
 from __future__ import annotations
  
 import os
+from functools import lru_cache
 from typing import Optional
  
 import matplotlib.gridspec as gridspec
@@ -14,21 +15,21 @@ from optax import losses
  
 from src.modRNN import learning_utils, plots, tasks
 from src.modRNN.training import TaskSpec, train_and_evaluate
+from src.modRNN.training.common import epoch_seed_sequence
 from flax.typing import Array
  
  
 # =============================================================================
-# Task-specific pieces
+# Shared task-specific helpers
 # =============================================================================
  
 def _input_dim(cfg) -> int:
-    # 4 populations: two cues (which themselves use 2 populations each),
-    # plus fixation and background channels.
+    # 4 populations: two cues (2 populations each), fixation and background.
     return 4 * cfg.net_arch.n_neurons_channel
  
  
-def _make_batch(cfg, *, n_batches: int, batch_size: int, seed: int):
-    """Thin wrapper that pulls task params out of cfg."""
+def _generate_batches(cfg, *, n_batches: int, batch_size: int, seed: int):
+    """Single source-of-truth wrapper around tasks.delayed_match_task."""
     return tasks.delayed_match_task(
         n_batches=n_batches, batch_size=batch_size, seed=seed,
         n_population=cfg.net_arch.n_neurons_channel,
@@ -42,8 +43,48 @@ def _make_batch(cfg, *, n_batches: int, batch_size: int, seed: int):
     )
  
  
+# =============================================================================
+# Batch generators (train / eval / test)
+# =============================================================================
+@lru_cache(maxsize=8)
+def _cached_epoch_seeds(master_seed: int, n_epochs: int):
+    return epoch_seed_sequence(master_seed, n_epochs)
+ 
+ 
+def _make_train_batch(cfg, *, epoch: int):
+    seeds = _cached_epoch_seeds(cfg.task.seed, cfg.train_params.iterations)
+    train_seed = int(seeds[epoch - 1])
+    return _generate_batches(
+        cfg,
+        n_batches=cfg.train_params.train_batch_size,
+        batch_size=cfg.train_params.train_mini_batch_size,
+        seed=train_seed,
+    )
+ 
+ 
+def _make_eval_batch(cfg):
+    return _generate_batches(
+        cfg,
+        n_batches=cfg.train_params.test_batch_size,
+        batch_size=cfg.train_params.test_mini_batch_size,
+        seed=cfg.task.seed,
+    )
+ 
+ 
+def _make_test_batch(cfg, *, offset: int):
+    return _generate_batches(
+        cfg,
+        n_batches=cfg.train_params.test_batch_size,
+        batch_size=cfg.train_params.test_mini_batch_size,
+        seed=cfg.task.seed + offset + 1,
+    )
+ 
+ 
+# =============================================================================
+# Loss / metrics
+# =============================================================================
+ 
 def _optimization_loss(logits, labels, z, c_reg, f_target, trial_length):
-    """Cross-entropy task loss + firing-rate regularization."""
     task_loss = jnp.mean(losses.softmax_cross_entropy(logits=logits, labels=labels))
     av_f_rate = learning_utils.compute_firing_rate(z=z, trial_length=trial_length)
     f_target_per_ms = f_target / 1000
@@ -54,7 +95,6 @@ def _optimization_loss(logits, labels, z, c_reg, f_target, trial_length):
  
  
 class Metrics(struct.PyTreeNode):
-    """Delayed-match metrics: cross-entropy loss + binary accuracy."""
     loss: float
     accuracy: Optional[float] = None
     count: Optional[int] = None
@@ -73,8 +113,11 @@ def _compute_metrics(*, labels: Array, predictions: Array) -> Metrics:
     )
  
  
+# =============================================================================
+# Example plots
+# =============================================================================
+ 
 def _plot_examples(*, cfg, state, eval_batch, output_dir: str, n_examples: int) -> None:
-    """Plot example trials showing inputs, spikes, and softmax output."""
     figures_dir = os.path.join(output_dir, 'figures')
     os.makedirs(figures_dir, exist_ok=True)
  
@@ -114,7 +157,7 @@ def _plot_examples(*, cfg, state, eval_batch, output_dir: str, n_examples: int) 
         fig.suptitle(f"Example {i + 1}: {cfg.save_paths.condition}")
         fig.tight_layout()
         fig.savefig(
-            os.path.join(figures_dir, f"example_{i + 1}.png"), format="png",
+            os.path.join(figures_dir, f"example_{i + 1}.svg"), format="svg",
         )
         plt.close(fig)
  
@@ -126,7 +169,9 @@ SPEC = TaskSpec(
     name="delayed_match",
     task_type="classification",
     input_dim_from_cfg=_input_dim,
-    make_batch=_make_batch,
+    make_train_batch=_make_train_batch,
+    make_eval_batch=_make_eval_batch,
+    make_test_batch=_make_test_batch,
     optimization_loss=_optimization_loss,
     metrics_class=Metrics,
     compute_metrics=_compute_metrics,
@@ -141,5 +186,4 @@ SPEC = TaskSpec(
  
  
 def train_and_evaluate_entry(cfg):
-    """Entry point called from main.py."""
     return train_and_evaluate(cfg, SPEC)

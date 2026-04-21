@@ -9,75 +9,97 @@ To add a new task:
   3. Hand that spec to `common.train_and_evaluate(cfg, spec)`.
 """
  
-from dataclasses import dataclass
-from typing import Any, Callable, Dict, Iterable, Optional
+from dataclasses import dataclass, field
+from typing import Any, Callable, Dict, Iterable
  
 from flax.typing import Array
  
  
-# A batch generator yields dicts with keys "input", "label", "trial_duration".
+# --- Type aliases for readability ------------------------------------------
 BatchGenerator = Callable[..., Iterable[Dict[str, Array]]]
- 
-# A loss function takes (logits, labels, z, c_reg, f_target, trial_length) -> scalar.
 LossFn = Callable[..., Array]
- 
-# A metrics function takes (labels, predictions) -> Metrics pytree.
 MetricsFn = Callable[..., Any]
- 
-# An example-plot function takes (cfg, state, eval_batch, figures_dir) -> None.
 ExamplePlotFn = Callable[..., None]
  
  
 @dataclass(frozen=True)
 class TaskSpec:
     """
-    Everything a task needs to supply to the shared training pipeline.
+    Task-specific hooks used by the shared training pipeline.
+ 
+    Training data flow
+    ------------------
+    Two callables control batch generation, because training and evaluation
+    have different requirements:
+ 
+      * `make_train_batch(cfg, *, epoch)` returns batches for a single
+        training epoch. The `epoch` argument lets each task decide whether
+        to vary the data across epochs (classification tasks typically do;
+        pattern_generation does not, by design).
+      * `make_eval_batch(cfg)` returns batches for the fixed evaluation set,
+        generated once at the start of training. All tasks use a single
+        fixed realization for eval.
+ 
+    Separating the two makes each task's data strategy explicit at the
+    point that matters (the task file), rather than hard-coded in the
+    shared loop.
+ 
+    Metric file naming
+    ------------------
+    By default, metric histories are saved as `<metric_name>_training.pkl`
+    and `<metric_name>_eval.pkl`. If a task needs different filenames (for
+    backwards compatibility with existing analysis scripts, for example),
+    `metric_filenames` provides a per-metric override. Keys are metric
+    names as listed in `metric_names`; values are the display name used in
+    filenames.
  
     Attributes
     ----------
     name
-        Short identifier, used only for logging ("cue_accumulation", etc.).
+        Short identifier, used for logging.
     task_type
-        Either "classification" or "regression". Controls which code path
-        `learning_rules.compute_grads` takes (softmax vs raw logits).
+        "classification" or "regression". Controls which code path
+        `learning_rules.compute_grads` takes.
     input_dim_from_cfg
         Returns the number of input channels `n_in` given the config.
-        This is task-dependent because each task has its own input encoding
-    make_batch
-        Callable that, given (cfg, n_batches, batch_size, seed), returns an
-        iterable of batches. 
+    make_train_batch
+        Callable(cfg, *, epoch) -> iterable of batches.
+    make_eval_batch
+        Callable(cfg) -> iterable of batches. The result is list()-ified
+        by the shared pipeline so it can be reused each evaluation.
+    make_test_batch
+        Callable(cfg, *, offset) -> iterable of batches, used for the
+        early-stopping confirmation. `offset` is an integer 0, 1, 2 that
+        lets the task decide whether to vary the test set (classification
+        tasks do; pattern_generation ignores it).
     optimization_loss
-        Loss used for autodiff gradients (cross-entropy for classification,
-        MSE for regression, both plus firing-rate regularization).
+        Loss used by autodiff (BPTT, e_prop_autodiff).
     metrics_class
         The PyTreeNode subclass used for this task's metrics.
     compute_metrics
-        Reduces (labels, predictions) to a single `metrics_class` instance.
+        Reduces (labels, predictions) -> a `metrics_class` instance.
     metric_names
-        Names of the scalar metrics this task reports, in the order they are
-        displayed/saved. E.g. ("loss", "accuracy") for classification,
-        ("loss", "normalized_loss") for regression. The first must be "loss".
+        Names of the scalar metrics this task reports, in display order.
+        The first must be "loss".
     early_stop_metric
-        Which metric field to use for early stopping.
+        Which field to use for early stopping.
     early_stop_better
-        "higher" if a higher value is better (accuracy), "lower" if lower is
-        better (normalized_loss). Used to decide the direction of the
-        stop_criteria comparison.
+        "higher" or "lower" — direction in which the metric is improving.
     log_format
-        printf-style format for per-epoch logging, takes the metric values.
-        E.g. "epoch %03d loss %.4f accuracy %.2f%%".
+        printf-style format for per-epoch logging.
     log_scale
-        How to scale each metric for display (e.g. accuracy * 100 for percent).
-        Same length as metric_names.
+        How to scale each metric for display (e.g. accuracy * 100).
     plot_examples
         Draws and saves the per-task example figures at end of training.
     plot_example_count
-        How many examples to plot at end of training (usually 3).
+        How many examples to plot.
     """
     name: str
     task_type: str  # "classification" | "regression"
     input_dim_from_cfg: Callable[[Any], int]
-    make_batch: Callable[..., Iterable[Dict[str, Array]]]
+    make_train_batch: Callable[..., Iterable[Dict[str, Array]]]
+    make_eval_batch: Callable[[Any], Iterable[Dict[str, Array]]]
+    make_test_batch: Callable[..., Iterable[Dict[str, Array]]]
     optimization_loss: LossFn
     metrics_class: type
     compute_metrics: MetricsFn

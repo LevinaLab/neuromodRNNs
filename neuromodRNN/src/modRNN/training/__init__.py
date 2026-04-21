@@ -3,7 +3,7 @@ Shared training pipeline for LSSN tasks.
  
 Typical use from a task-specific train script:
  
-    from modRNN.training import TaskSpec, train_and_evaluate
+    from src.modRNN.training import TaskSpec, train_and_evaluate
  
     spec = TaskSpec(...)
  
@@ -18,7 +18,7 @@ from src.modRNN.training.common import (
     create_train_state,
     train_and_evaluate,
 )
-
+ 
 __all__ = [
     "TaskSpec",
     "TrainStateEProp",
@@ -26,4 +26,3 @@ __all__ = [
     "create_train_state",
     "train_and_evaluate",
 ]
-
