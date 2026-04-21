@@ -112,12 +112,12 @@ def main(cfg: ConfigTrain) -> None:
     
     if cfg.task.task_name == "cue_accumulation":
         
-        train_cue_accumulation.train_and_evaluate(cfg)
+        train_cue_accumulation.train_and_evaluate_entry(cfg)
     elif cfg.task.task_name == "delayed_match":
-        train_delayed_match.train_and_evaluate(cfg)
+        train_delayed_match.train_and_evaluate_entry(cfg)
     
     elif cfg.task.task_name == "pattern_generation":
-        train_pattern_generation.train_and_evaluate(cfg)
+        train_pattern_generation.train_and_evaluate_entry(cfg)
         
 
     else:
