@@ -430,7 +430,7 @@ def train_and_evaluate(cfg, spec: TaskSpec) -> TrainState:
     history["iterations"].append(final_epoch)
 
     # -- Save + plot ------------------------------------------------------
-    _save_history(history, output_dir, spec)
+    _save_history(history, output_dir)
     plot_training_curves(history, spec, output_dir)
     plot_final_weights(state, cfg, output_dir)
     log_firing_rate_stats(state, eval_batch[0], logger)
