@@ -476,7 +476,7 @@ def train_and_evaluate(cfg, spec: TaskSpec) -> TrainState:
         LS_avail=cfg.task.LS_avail, spec=spec,
     )
     for name in spec.metric_names:
-        history[name].append(getattr(train_metrics, name))
+        history[f"{name}_training"].append(getattr(train_metrics, name))
         history[f"{name}_eval"].append(getattr(eval_metrics, name))
     history["iterations"].append(final_epoch)
 
@@ -532,5 +532,5 @@ def _save_history(history: Dict[str, List], output_dir: str) -> None:
     train_info_dir = os.path.join(output_dir, 'train_info')
     os.makedirs(train_info_dir, exist_ok=True)
     for name, values in history.items():
-        with open(os.path.join(train_info_dir, f'{name}_training.pkl'), 'wb') as f:
+        with open(os.path.join(train_info_dir, f'{name}'), 'wb') as f:
             pickle.dump(values, f, pickle.HIGHEST_PROTOCOL)
