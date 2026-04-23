@@ -7,7 +7,7 @@ from matplotlib.colors import ListedColormap
 import seaborn as sns
 import jax.numpy as jnp
 from met_brewer import met_brew
-from matplotlib.colors import TwoSlopeNorm
+from matplotlib.colors import TwoSlopeNorm, Normalize
 # Just for typing the type of inputs of functions
 from typing import (
  List  
@@ -220,9 +220,15 @@ def plot_LSNN_weights(state, layer_names:List, save_path):
     cmap = ListedColormap(met_brew_colors)
     for i, (weights, ax) in enumerate(zip(weights_list, axs)):
        
-        divnorm = TwoSlopeNorm(vmin=weights.min(), vcenter=0, vmax=weights.max())
+        vmin, vmax = float(weights.min()), float(weights.max())
+        if vmin < 0 < vmax:
+            norm = TwoSlopeNorm(vmin=vmin, vcenter=0, vmax=vmax)
+        else:
+            # All weights on one side of zero — can't center the colormap at 0.
+            # Fall back to a regular symmetric-around-the-midpoint norm.
+            norm = Normalize(vmin=vmin, vmax=vmax)
         # Plot the weights
-        cax = ax.imshow(weights, cmap=cmap,interpolation='nearest', aspect='auto', norm=divnorm)
+        cax = ax.imshow(weights, cmap=cmap,interpolation='nearest', aspect='auto', norm=norm)
      
         
         # Add a color bar
