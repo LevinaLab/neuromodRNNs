@@ -7,16 +7,9 @@ defaults:
 # Standard delayed_match experiment configuration.
 # Previously: worker.sh TASK_ARGS=(...) for delayed_match.
 # ---------------------------------------------------------------------------
- 
-# Task-specific parameters
-task:
-  LS_avail: 50
-  cue_delay_time: 700
-  decision_delay: 0
- 
+  
 # Network architecture overrides
 net_arch:
-  sparse_readout: true
   n_neurons_channel: 20
  
 # Network parameter overrides
@@ -28,6 +21,5 @@ net_params:
 # Training parameter overrides
 train_params:
   lr: 0.005
-  iterations: 2000
   c_reg: 0.01
  

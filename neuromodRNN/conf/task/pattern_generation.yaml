@@ -6,10 +6,6 @@ defaults:
 # Standard pattern_generation experiment configuration.
 # ---------------------------------------------------------------------------
  
-# Task-specific parameters
-task:
-  trial_dur: 2000
-  f_input: 50
  
 # Network architecture overrides
 net_arch:
@@ -18,8 +14,6 @@ net_arch:
   n_LIF: 400
   gridshape: [20, 20]
   n_out: 1
-  sparse_input: true
-  sparse_readout: true
  
 # Network parameter overrides
 net_params:
@@ -36,5 +30,4 @@ train_params:
   test_mini_batch_size: 8
   c_reg: 0.01
   lr: 0.0100
-  iterations: 2000
   stop_criteria: 0.001
