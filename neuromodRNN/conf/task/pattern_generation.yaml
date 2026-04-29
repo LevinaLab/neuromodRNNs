@@ -1,6 +1,40 @@
+# @package _global_
 defaults:
-  - /task_class/task/pattern_generation@_here_   
-
-
-  # See composition order note  
+  - /task_class/task/pattern_generation@task
   - _self_
+# ---------------------------------------------------------------------------
+# Standard pattern_generation experiment configuration.
+# ---------------------------------------------------------------------------
+ 
+# Task-specific parameters
+task:
+  trial_dur: 2000
+  f_input: 50
+ 
+# Network architecture overrides
+net_arch:
+  n_neurons_channel: 100
+  n_ALIF: 0
+  n_LIF: 400
+  gridshape: [20, 20]
+  n_out: 1
+  sparse_input: true
+  sparse_readout: true
+ 
+# Network parameter overrides
+net_params:
+  tau_m: 30
+  tau_out: 30
+  refractory_period: 2
+  k: 0.75
+ 
+# Training parameter overrides
+train_params:
+  train_batch_size: 8
+  train_mini_batch_size: 8
+  test_batch_size: 8
+  test_mini_batch_size: 8
+  c_reg: 0.01
+  lr: 0.0100
+  iterations: 2000
+  stop_criteria: 0.001
