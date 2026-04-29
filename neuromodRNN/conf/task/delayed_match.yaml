@@ -1,4 +1,25 @@
+# @package _global_
 defaults:
-  - /task_class/task/delayed_match@_here_
-  # See composition order note  
+  - /task_class/task/delayed_match@task
   - _self_
+ 
+# ---------------------------------------------------------------------------
+# Standard delayed_match experiment configuration.
+# Previously: worker.sh TASK_ARGS=(...) for delayed_match.
+# ---------------------------------------------------------------------------
+  
+# Network architecture overrides
+net_arch:
+  n_neurons_channel: 20
+ 
+# Network parameter overrides
+net_params:
+  k: 0.75
+  tau_adaptation: 1400
+  w_init_gain: [0.5, 0.1, 0.5, 0.5]
+ 
+# Training parameter overrides
+train_params:
+  lr: 0.005
+  c_reg: 0.01
+ 

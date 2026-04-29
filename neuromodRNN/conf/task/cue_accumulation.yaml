@@ -1,5 +1,19 @@
+# @package _global_
 defaults:
-  - /task_class/task/cue_accumulation@_here_
-  # See composition order note  
+  - /task_class/task/cue_accumulation@task
   - _self_
+ 
+# ---------------------------------------------------------------------------
+# Standard cue_accumulation experiment configuration.
+# ---------------------------------------------------------------------------
+  
 
+# Network parameter overrides
+net_params:
+  k: 0.75
+ 
+# Training parameter overrides
+train_params:
+  lr: 0.005
+  iterations: 2000
+  c_reg: 0.005
