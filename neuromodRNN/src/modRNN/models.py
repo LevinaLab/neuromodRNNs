@@ -438,42 +438,6 @@ class LSSN(nn.Module):
         Perform the forward pass through the LSSN.
     initialize_eligibility_carry(rng, input_shape)
         Initialize the eligibility trace carry state.
-
-
-    
-    # net_arch
-    n_ALIF: int = 3 # Number of adaptive neurons ALIF.
-    n_LIF: int = 3 # Number of standard LIF neurons.
-    local_connectivity: bool = True # If or not the recurrent layer presents local connection pattern.
-    sigma: float = 0.012 # controls probability of connection in the local connective mode according to distance between neurons.       
-    gridshape: Tuple[int, int] = (10, 10) # (w,h) width (n_cols) and height(n_rows) of 2D grid used for embedding of recurrent layer.
-    n_neuromodulators: int =1 # number of neuromodulators.
-    
-    # net_params
-    thr: float = 0.6 # Base firing threshold for neurons
-    tau_m: float = 20 # Membrane time constant (ms)
-    tau_adaptation: float = 2000 # Time constant for adaptation (ms).
-    beta: float = 1.7  # Modulator to initialized adaptation strength for ALIF. Notice that this is not the value of the adaptation, see at __call__ how it is used to initialize the value.
-    gamma: float = 0.3 # Dampening factor for pseudo-derivative.
-    refractory_period: int = 5 # refractory period in ms.
-    k: float = 0 # decay rate of diffusion.
-    radius:int = 1 # radius of difussion kernel,should probably be kept as one.
-
-
-    # Initializers    
-
-    weights_init: Initializer = initializers.kaiming_normal() # Initializer for input and recurrent weights.
-    gain: Tuple[float, float] = (0.5,0.1) # Gain for initialization of input and recurrent weights.
-    
-    
-    # seeds
-    local_connectivity_seed: int = 0 # seed for initialize RNG used for local_connectivity mask.
-    cell_loc_seed: int = 3 # seed for initialize RNG used for location of cells in the 2D embedding (grid).
-    diff_kernel_seed: int = 0 # # seed for initialize RGN for diffusion kernel (not used in the function).
-    
-    # others
-    dt: float = 1 # Time step size (ms).
-    param_dtype: Dtype = jnp.float32  # dtype of parameters. 
     """
                   
     # architecture
