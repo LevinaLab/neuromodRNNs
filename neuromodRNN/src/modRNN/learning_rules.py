@@ -1,8 +1,3 @@
-
-# TODO: adapt the diffusion update once I define how to initialize everything
-# TODO: adapt the diffusion update once have more than 1 neuromodulator
-# TODO: adapt for when I have sparse connectivity to output (use a mask to remove the errors)
- 
 """Library file used learning rules: e-pro;, moddiffusion"""
  
 from jax import lax, numpy as jnp
@@ -40,14 +35,22 @@ from flax.typing import Array, PRNGKey
 # use the online version.
 LS_AVAIL_VECTORIZED_THRESHOLD = 10
  
+DIFFUSION_MODE_ALIGNED = "aligned"
+DIFFUSION_MODE_SHUFFLED_PER_STEP = "shuffled_per_step"
+DIFFUSION_MODE_SHUFFLED_FIXED = "shuffled_fixed"
+ 
+_VALID_DIFFUSION_MODES = (
+    DIFFUSION_MODE_ALIGNED,
+    DIFFUSION_MODE_SHUFFLED_PER_STEP,
+    DIFFUSION_MODE_SHUFFLED_FIXED,
+)
  
  
  
 def e_prop_vectorized(batch_init_carries:Tuple[Dict[str,Array], Array], 
                            batch_inputs: Tuple[Array, Array,Tuple[Array, Array, Array]], 
                            params: Tuple[Dict[str,Dict],Dict[str,Dict]], 
-                           LS_avail:int, z:Array, trial_length:Array, f_target: float, c_reg: float,
-                           shuffle:bool, key:PRNGKey                         
+                           LS_avail:int, z:Array, trial_length:Array, f_target: float, c_reg: float,                       
     ):
     """
     Implements vectorized version of e-prop, where update computation is done "offline".It is more efficient for tasks where learning signal is avaialble only at a few number of time steps since it then allows
@@ -121,7 +124,6 @@ def e_prop_online(batch_init_carries:Tuple[Dict[str,Array], Array],
                 batch_inputs: Tuple[Array, Array,Tuple[Array, Array, Array]], 
                 params: Tuple[Dict[str,Dict],Dict[str,Dict]], 
                 LS_avail:int, z:Array, trial_length:Array, f_target: float, c_reg: float,
-                shuffle:bool, key:PRNGKey
 ):
     """
     Implements "online" version of e-prop, where updates are compute "online", but applied only after end of batch. it requires less memory usage and therefore more suitable
@@ -181,112 +183,179 @@ def e_prop_online(batch_init_carries:Tuple[Dict[str,Array], Array],
  
  
  
-def neuromod_online(batch_init_carries:Tuple[Dict[str,Array], Array],
-                    batch_inputs: Tuple[Array, Array,Tuple[Array, Array, Array]],                     
-                    params: Tuple[Dict[str,Dict],Dict[str,Dict]],                     
-                    LS_avail:int, z:Array, trial_length:Array, f_target: float, c_reg: float, 
-                    shuffle: bool, key: PRNGKey
+def neuromod_online(
+    batch_init_carries: Tuple[Dict[str, Array], Array],
+    batch_inputs: Tuple[Array, Array, Tuple[Array, Array, Array]],
+    params: Tuple[Dict[str, Dict], Dict[str, Dict]],
+    LS_avail: int,
+    z: Array,
+    trial_length: Array,
+    f_target: float,
+    c_reg: float,
+    diffusion_mode: str,
+    key: PRNGKey,
 ):
     """
-    Implements "online" version of neuromodulator diffusion updated, where updates are compute "online", but applied only after end of batch. 
-    Returns hardcoded neuromodulator diffusion gradients(either recurrent or input layer) for a given batch.
+    "Online" version of neuromodulator-diffusion gradient updates: per-step
+    learning signals are diffused over a 2D grid, accumulated, and combined
+    with eligibility traces to produce a per-batch gradient.
+ 
+    Updates are computed online (within a scan over time) but applied only
+    after the end of the batch.
+ 
+    Parameters
+    ----------
+    diffusion_mode
+        One of:
+          - DIFFUSION_MODE_ALIGNED: no shuffle. Diffusion respects network
+            grid locality.
+          - DIFFUSION_MODE_SHUFFLED_PER_STEP: fresh permutation every
+            step, per batch.
+          - DIFFUSION_MODE_SHUFFLED_FIXED: single permutation shared
+            across the whole run, read from
+            spatial_params['ALIFCell_0']['shuffle_permutation_fixed'].
+ 
+    key
+        PRNG key. For SHUFFLED_PER_STEP, fresh subkeys are split off each
+        step (via the scan carry) so the per-step permutation actually
+        changes. For other modes, the key is unused but threaded through
+        the scan carry for signature uniformity.
+ 
+    Returns
+    -------
+    Per-weight gradient (n_pre, n_post): the time-averaged task update
+    over the LS_avail trailing time steps plus the summed regularization
+    update.
     """
-    # unpack values eligibility and diffusion params params (check compute_grads function for detailing on params)   
+    if diffusion_mode not in _VALID_DIFFUSION_MODES:
+        raise ValueError(
+            f"diffusion_mode must be one of {_VALID_DIFFUSION_MODES}, "
+            f"got {diffusion_mode!r}"
+        )
+ 
     eligibility_params, spatial_params = params
  
-    # collect spatial params    
-    diff_K = spatial_params['ALIFCell_0']['diff_K'] # diffusion kernel
+    diff_K = spatial_params['ALIFCell_0']['diff_K']
+    radius = (jnp.shape(diff_K)[2] - 1) // 2
+    cells_loc = spatial_params['ALIFCell_0']['cells_loc']
  
-    radius = (jnp.shape(diff_K)[2] -1) // 2 # radius is not direclty saved as a params, but can be easily recovered since shape of kernel depends on it. k(n_neurotransmitter,1, 2*radius +1, 2*radius +1)
-    #radius=1
-    cells_loc = spatial_params['ALIFCell_0']['cells_loc'] # array containig indices localizing position of the cells in the grid
+    # For SHUFFLED_FIXED, the permutation was created once at model init
+    # and lives in spatial_params. For other modes, it's unused.
+    if diffusion_mode == DIFFUSION_MODE_SHUFFLED_FIXED:
+        fixed_permutation = spatial_params['ALIFCell_0']['shuffle_permutation_fixed']
+    else:
+        fixed_permutation = None
  
+    # Firing-rate regularization error (constant over the scan).
+    f_error = learning_utils.firing_rate_error(z, trial_length, f_target)
+    feedback_kernel = eligibility_params['ReadOut_0']['feedback_weights']
  
-    # firing regularization error
-    f_error = learning_utils.firing_rate_error(z, trial_length, f_target) #(n_batch, n_rec)
-    
-    feedback_kernel = eligibility_params['ReadOut_0']['feedback_weights']    
-       
-    # modify shape of y_batch and true_y_batch for operation compatibility
-    y_batch, true_y_batch, eligibility_input = batch_inputs    
-    
-    if true_y_batch.ndim == 2:  # Guarantee that Labels have n_out dimension, so that are compatible with operation.
+    y_batch, true_y_batch, eligibility_input = batch_inputs
+    if true_y_batch.ndim == 2:
         true_y_batch = jnp.expand_dims(true_y_batch, axis=-1)
-        
-    y_batch = jnp.transpose(y_batch, (1,0,2)) # time need to be leading axis (n_t,n_b, n_out)
-    true_y_batch = jnp.transpose(true_y_batch, (1,0,2)) # time need to be leading axis (n_t,n_b, n_out)
- 
+    y_batch = jnp.transpose(y_batch, (1, 0, 2))               # (n_t, n_b, n_out)
+    true_y_batch = jnp.transpose(true_y_batch, (1, 0, 2))     # (n_t, n_b, n_out)
     batch_size = jnp.shape(true_y_batch)[1]
  
+    # Mask: 1 where the learning signal is available, 0 otherwise.
+    # If LS_avail == 0, the signal is available throughout (a special case).
     def create_LS_vector():
-        """create vector at 0s at time steps where Learning Signal is not available, and 1s where it is """
-        # learning signal available every time step
-        LS_vector = jnp.ones_like(y_batch)  #(n_t,n_b,n_out)
+        LS_vector = jnp.ones_like(y_batch)
         if LS_avail != 0:
             LS_vector = LS_vector.at[:-LS_avail].set(0)
         return LS_vector
- 
     LS_vector = create_LS_vector()
-    
  
-    # define update function for single time step
+    # Network-grid positions for each cell. Used identically every step
+    # for both injection and readout, regardless of mode.
+    cell_rows, cell_cols = cells_loc[:, 0], cells_loc[:, 1]
+ 
     def one_step_gradient(carries, inputs):
-        y_batch_step, true_y_batch_step, eligibility_input_step, LS_avail_step = inputs
-        
-        task_error = learning_utils.error_signal(y=y_batch_step, true_y=true_y_batch_step) #(n_b, n_out)
-        # Get if error is available as incoming L or not
+        # Carry now includes the PRNG key so per-step shuffle can use a
+        # fresh permutation each step. Without this, all steps would share
+        # the same closure-captured key — the latent bug in the
+        # pre-refactor code.
+        eligibility_carries, error_grid, step_key = carries
+        y_step, true_y_step, eligibility_input_step, LS_avail_step = inputs
+ 
+        # Direct feedback: cell's "own" new error this step.
+        task_error = learning_utils.error_signal(y=y_step, true_y=true_y_step)
         task_error *= LS_avail_step
-        
-        
-        # compute new learning signal arriving at current time step
-        incoming_L = learning_utils.batched_learning_signal(task_error,feedback_kernel) # (n_batch, n_rec)      
-        
+        incoming_L = learning_utils.batched_learning_signal(
+            task_error, feedback_kernel,
+        )                                                     # (n_b, n_rec)
  
-        
-        # unpack carries
-        eligibility_carries, error_grid = carries
-        
-        # Diffuses previous error using CA. Grid has shape (n_b, n_neuromodulators, h, w).
-        diffused_error_grid = learning_utils.error_diffusion(carry=error_grid, inputs=jnp.zeros(1), params=(radius, diff_K)) # the function doesnt use inputs, it is just there in case decide to scan over it individually
-        
-        if shuffle:
-            diffused_error_grid = learning_utils.shuffle_error_grid(key=key, error_grid=diffused_error_grid)
-        
-        # get indices of where to modify --> add new error signal to locations where they are released        
-        cell_rows, cell_cols = cells_loc[:, 0], cells_loc[:, 1]
-        # add the current incoming learning signal to grid
-        new_error_grid = diffused_error_grid.at[:,0,cell_rows,cell_cols].add(incoming_L)
-        # Extract the learning signal available to each cell
-        L = new_error_grid[:,0, cell_rows, cell_cols] #(n_b,n_rec)
-        
-        # From now on same as e-prop        
-        new_eligibility_carries, eligibility_trace = learning_utils.batched_eligibitity_trace(eligibility_carries,eligibility_input_step, 
-                                                                                               eligibility_params
-        ) #(n_b, n_post, n_pre)
-        
-        new_eligibility_carries['low_pass_eligibility_trace'], low_pass_trace = learning_utils.batched_low_pass_eligibility_trace(new_eligibility_carries['low_pass_eligibility_trace'],eligibility_trace,eligibility_params)
-        task_update = jnp.einsum('bri,bri->ir', jnp.expand_dims(L,axis=2), low_pass_trace) #n_pre, n_post
-        
-        # average over batch 
+        # Step 1: diffuse the previous step's error grid.
+        diffused_error_grid = learning_utils.error_diffusion(
+            carry=error_grid, inputs=jnp.zeros(1),
+            params=(radius, diff_K),
+        )                                                     # (n_b, 1, h, w)
+ 
+        # Step 2: optionally shuffle the diffused grid. 
+        if diffusion_mode == DIFFUSION_MODE_SHUFFLED_PER_STEP:
+            step_use_key, next_step_key = jax.random.split(step_key)
+            grid_after_shuffle = learning_utils.shuffle_error_grid(
+                key=step_use_key, error_grid=diffused_error_grid,
+            )
+        elif diffusion_mode == DIFFUSION_MODE_SHUFFLED_FIXED:
+            grid_after_shuffle = learning_utils.apply_fixed_shuffle(
+                error_grid=diffused_error_grid,
+                permutation=fixed_permutation,
+            )
+            next_step_key = step_key                          # unused but threaded
+        else:                                                 # DIFFUSION_MODE_ALIGNED
+            grid_after_shuffle = diffused_error_grid
+            next_step_key = step_key
+ 
+        # Step 3: inject incoming_L at network positions.
+        new_error_grid = grid_after_shuffle.at[
+            :, 0, cell_rows, cell_cols
+        ].add(incoming_L)
+ 
+        # Step 4: read L from network positions.
+        L = new_error_grid[:, 0, cell_rows, cell_cols]        # (n_b, n_rec)
+ 
+        new_eligibility_carries, eligibility_trace = (
+            learning_utils.batched_eligibitity_trace(
+                eligibility_carries, eligibility_input_step, eligibility_params,
+            )
+        )
+        new_eligibility_carries['low_pass_eligibility_trace'], low_pass_trace = (
+            learning_utils.batched_low_pass_eligibility_trace(
+                new_eligibility_carries['low_pass_eligibility_trace'],
+                eligibility_trace, eligibility_params,
+            )
+        )
+        task_update = jnp.einsum(
+            'bri,bri->ir',
+            jnp.expand_dims(L, axis=2), low_pass_trace,
+        )                                                     # (n_pre, n_post)
         task_update /= batch_size
-        
-        
-        reg_update =  (c_reg/trial_length[:,None,None]) * f_error[:,:,None] * eligibility_trace # n_post, n_pre
-        reg_update = jnp.transpose(jnp.mean(reg_update, axis=0),(1,0)) # mean over batches and transpose to have shape of weights n_pre, n_post
-        return (new_eligibility_carries, new_error_grid), (task_update,reg_update)
-    
-    
-    # scan over time to get updates (updates (n_t, n_pre, n_post))
-    _, updates = lax.scan(
-        lambda carry, input:one_step_gradient(carry, input),
-        batch_init_carries,
-        (y_batch, true_y_batch,eligibility_input, LS_vector )
-    )
  
-    # unpack different type of updates
+        reg_update = (
+            (c_reg / trial_length[:, None, None]) * f_error[:, :, None]
+            * eligibility_trace
+        )
+        reg_update = jnp.transpose(jnp.mean(reg_update, axis=0), (1, 0))
+ 
+        return (
+            (new_eligibility_carries, new_error_grid, next_step_key),
+            (task_update, reg_update),
+        )
+ 
+    # Scan over time.
+    eligibility_carries, init_error_grid = batch_init_carries
+    _, updates = lax.scan(
+        one_step_gradient,
+        (eligibility_carries, init_error_grid, key),
+        (y_batch, true_y_batch, eligibility_input, LS_vector),
+    )
     task_updates, reg_updates = updates
-   
-    return jnp.mean(task_updates[-LS_avail:,:,:], axis=0)  + jnp.sum(reg_updates, axis=0)  # for reg update sum, because weigth update already averages across duration
+ 
+    return (
+        jnp.mean(task_updates[-LS_avail:, :, :], axis=0)
+        + jnp.sum(reg_updates, axis=0)
+    )
     
  
     
@@ -417,7 +486,7 @@ def autodiff_grads(batch,state, optimization_loss_fn,LS_avail, c_reg, f_target):
 def hardcoded_grads(
     batch: Dict[str, Array], state, LS_avail: int,
     f_target: float, c_reg: float, learning_rule: str, task: str,
-    shuffle: bool, key: PRNGKey,
+    diffusion_mode: str, key: PRNGKey,
 ) -> Tuple[Array, Dict[str, Dict]]:
     """
     Compute gradients via a hardcoded (non-autodiff) pipeline.
@@ -483,8 +552,10 @@ def hardcoded_grads(
     # -- Pick the gradient function for input/recurrent layers ------------
     if learning_rule == "e_prop_hardcoded":
         grad_function = _select_eprop_variant(LS_avail)
+        diffusion_kwargs = {}      
     elif learning_rule == "diffusion":
         grad_function = neuromod_online
+        diffusion_kwargs = {"diffusion_mode": diffusion_mode, "key":key}
     else:
         raise ValueError(
             f"hardcoded_grads called with unsupported learning_rule={learning_rule!r}"
@@ -497,14 +568,15 @@ def hardcoded_grads(
         batch_init_carries=(init_e_carries['inputs'], init_error_grid),
         batch_inputs=inputs_in, params=params, LS_avail=LS_avail, z=z,
         trial_length=trial_length, f_target=f_target, c_reg=c_reg,
-        shuffle=shuffle, key=key,
+        **diffusion_kwargs,
+
     )
  
     grads['ALIFCell_0']['recurrent_weights'] = grad_function(
         batch_init_carries=(init_e_carries['rec'], init_error_grid),
         batch_inputs=inputs_rec, params=params, LS_avail=LS_avail, z=z,
         trial_length=trial_length, f_target=f_target, c_reg=c_reg,
-        shuffle=shuffle, key=key,
+        **diffusion_kwargs,
     )
  
     grads['ReadOut_0']['readout_weights'] = output_grads(
@@ -516,7 +588,7 @@ def hardcoded_grads(
  
 def compute_grads(batch:Dict[str, Array], state,optimization_loss_fn:Callable, LS_avail: int, 
                   f_target:float, c_reg:float, learning_rule:str, task:str,
-                  shuffle:bool, key:PRNGKey) ->Dict[str, Dict]:
+                  diffusion_mode:str, key:PRNGKey) ->Dict[str, Dict]:
     """
     Compute grads according to chosen learning rule.
  
@@ -618,7 +690,7 @@ def compute_grads(batch:Dict[str, Array], state,optimization_loss_fn:Callable, L
         y, grads = hardcoded_grads(
             batch=batch, state=state, LS_avail=LS_avail,
             f_target=f_target, c_reg=c_reg, learning_rule=learning_rule,
-            task=task, shuffle=shuffle, key=key,
+            task=task, diffusion_mode=diffusion_mode, key=key,
         )
     else:
         raise NotImplementedError(

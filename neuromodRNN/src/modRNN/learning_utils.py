@@ -305,3 +305,17 @@ def shuffle_error_grid(key, error_grid):
     shuffled_grid = shuffled_grid.reshape(n_batches, 1, h, w)
     
     return shuffled_grid
+
+def apply_fixed_shuffle(error_grid, permutation):
+
+    n_batches, _, h, w = error_grid.shape
+ 
+    # Flatten the spatial dimensions; apply the permutation; reshape back.
+    flat_grid = error_grid.reshape(n_batches, 1, h * w)
+ 
+    # Same permutation applied to every batch. (Compare to
+    # shuffle_error_grid, which uses vmap to apply a different per-batch
+    # permutation.) Broadcasting handles the n_batches axis.
+    shuffled_flat = flat_grid[:, :, permutation]
+ 
+    return shuffled_flat.reshape(n_batches, 1, h, w)
