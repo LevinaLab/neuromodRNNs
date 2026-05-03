@@ -117,6 +117,7 @@ class ALIFCell(nn.recurrent.RNNCellBase):
     # seeds
     rec_connectivity_seed: int = 0 # seed for initialize RNG used for local_connectivity mask.
     cell_loc_seed: int = 3 # seed for initialize RNG used for location of cells in the 2D embedding (grid).
+    shuffle_permutation_seed: int = 0
     diff_kernel_seed: int = 0 # # seed for initialize RGN for diffusion kernel (not used in the function).
     input_sparsity_seed: int = 3342 # Key for sparsity mask initialization
     # others
@@ -174,7 +175,22 @@ class ALIFCell(nn.recurrent.RNNCellBase):
                                                                     key=random.key(self.cell_loc_seed),
                                                                     n_rec=self.n_LIF +self.n_ALIF,
                                                                     dtype= self.param_dtype))
-        
+ 
+        shuffle_permutation_fixed = self.variable(
+            'spatial params',
+            'shuffle_permutation_fixed',
+            lambda key: random.permutation(
+                key,
+                self.gridshape[0] * self.gridshape[1],
+            ),
+            # Use a dedicated seed so changing this is independent of all
+            # other spatial-param seeds.
+            random.PRNGKey(self.shuffle_permutation_seed),
+        )       
+
+
+
+
         # Initialize recurrent connectivity mask --> local connection or 1s, depending on local_connectivity
         M = self.variable('spatial params', 'M',
                         inits.initialize_connectivity_mask(connectivity_rec_layer=self.connectivity_rec_layer,
@@ -493,6 +509,7 @@ class LSSN(nn.Module):
     # seeds
     rec_connectivity_seed: int = 0 # seed for initialize RNG used for local_connectivity mask.
     cell_loc_seed: int = 3 # seed for initialize RNG used for location of cells in the 2D embedding (grid).
+    shuffle_permutation_seed: int = 0
     diff_kernel_seed: int = 0 # seed for initialize RNG for diffusion kernel (not used in the function).
     FeedBack_seed: int = 42 # seed for initialize RNG for Feedback weights.
     input_sparsity_seed: int = 3342 # Key for input sparsity mask initialization
@@ -530,7 +547,7 @@ class LSSN(nn.Module):
                                     gridshape= self.gridshape, n_neuromodulators=self.n_neuromodulators, thr=self.thr, tau_m=self.tau_m, tau_adaptation=self.tau_adaptation,
                                     beta = self.beta, gamma = self.gamma, refractory_period = self.refractory_period, k=self.k, radius=self.radius, learning_rule=self.learning_rule, input_sparsity=self.input_sparsity,
                                     recurrent_sparsity=self.recurrent_sparsity,v_init = self.v_init, a_init=self.a_init, A_thr_init=self.A_thr_init, z_init=self.z_init, r_init=self.r_init, weights_init = self.ALIF_weights_init,
-                                    gain = (self.gain[0], self.gain[1]), rec_connectivity_seed= self.rec_connectivity_seed, cell_loc_seed= self.cell_loc_seed,
+                                    gain = (self.gain[0], self.gain[1]), rec_connectivity_seed= self.rec_connectivity_seed, cell_loc_seed= self.cell_loc_seed, shuffle_permutation_seed=self.shuffle_permutation_seed,
                                     diff_kernel_seed=self.diff_kernel_seed, input_sparsity_seed=self.input_sparsity_seed, dt=self.dt, param_dtype=self.param_dtype), variable_broadcast=("params", 'eligibility params', 'spatial params'), name="Recurrent"
         )
         
