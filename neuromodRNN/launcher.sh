@@ -47,7 +47,7 @@ if [[ ! " ${VALID_TASKS[*]} " =~ " ${TASK} " ]]; then
     exit 1
 fi
  
-VALID_EXPERIMENTS=("base" "sparse_recurrent" "shuffled_diffusion")
+VALID_EXPERIMENTS=("BPTT" "e_prop_hardcoded" "diffusion" "per_step_shuffle_diffusion" "fixed_shuffle_diffusion" "sparse_recurrent")
 if [[ ! " ${VALID_EXPERIMENTS[*]} " =~ " ${EXPERIMENT} " ]]; then
     echo "ERROR: Unknown experiment '$EXPERIMENT'."
     echo "Valid options: ${VALID_EXPERIMENTS[*]}"
