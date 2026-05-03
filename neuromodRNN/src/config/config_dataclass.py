@@ -1,4 +1,3 @@
-
 """
 Schema for the non-task portion of the config: network architecture,
 network parameters, training parameters, save paths.
@@ -69,7 +68,7 @@ class TrainParams:
     f_target: float = 10.
     c_reg: float = 1.0
     learning_rule: str = "e_prop_hardcoded"  # "BPTT" | "e_prop_hardcoded" | "e_prop_autodiff" | "diffusion"
-    shuffle: bool = False  # whether to shuffle the diffusion grid (only used by diffusion)
+    diffusion_mode: str = "aligned" # one of: "aligned", "shuffled_per_step", "shuffled_fixed"
     test_grads: bool = False  # debug: compare autodiff vs hardcoded grads
  
  

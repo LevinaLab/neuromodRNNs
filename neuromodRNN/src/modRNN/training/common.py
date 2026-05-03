@@ -53,8 +53,9 @@ def model_from_config(cfg) -> LSSN:
      rec_connectivity_seed,
      diff_kernel_seed,
      cell_loc_seed,
+     shuffle_permutation_seed,
      input_sparsity_seed,
-     readout_sparsity_seed) = random.randint(subkey, (6,), 10_000, 10_000_000)
+     readout_sparsity_seed) = random.randint(subkey, (7,), 10_000, 10_000_000)
 
     return LSSN(
         # architecture
@@ -87,6 +88,7 @@ def model_from_config(cfg) -> LSSN:
         # seeds
         input_sparsity_seed=input_sparsity_seed,
         readout_sparsity_seed=readout_sparsity_seed,
+        shuffle_permutation_seed=shuffle_permutation_seed,
         FeedBack_seed=feedback_seed,
         rec_connectivity_seed=rec_connectivity_seed,
         diff_kernel_seed=diff_kernel_seed,
@@ -213,7 +215,7 @@ def train_step(
     c_reg: float,
     learning_rule: str,
     task: str,
-    shuffle: bool,
+    diffusion_mode: str,
     shuffle_key: PRNGKey,
     compute_metrics_fn: Callable,
 ) -> Tuple[TrainState, Any, Dict]:
@@ -227,7 +229,7 @@ def train_step(
         c_reg=c_reg,
         learning_rule=learning_rule,
         task=task,
-        shuffle=shuffle,
+        diffusion_mode=diffusion_mode,
         key=shuffle_key,
     )
     new_state = state.apply_gradients(grads=grads)
@@ -249,7 +251,7 @@ def train_epoch(
     c_reg: float,
     learning_rule: str,
     task: str,
-    shuffle: bool,
+    diffusion_mode: str,
     shuffle_key: PRNGKey,
     spec: TaskSpec,
 ) -> Tuple[TrainState, Any, Dict]:
@@ -263,7 +265,7 @@ def train_epoch(
             optimization_loss_fn=optimization_loss_fn,
             LS_avail=LS_avail, f_target=f_target, c_reg=c_reg,
             learning_rule=learning_rule, task=task,
-            shuffle=shuffle, shuffle_key=shuffle_key,
+            diffusion_mode=diffusion_mode, shuffle_key=shuffle_key,
         )
         batch_metrics.append(metrics)
         accumulated_grads = jax.tree_util.tree_map(
@@ -336,7 +338,7 @@ def train_and_evaluate(cfg, spec: TaskSpec) -> TrainState:
 
     train_step_fn = jax.jit(
         partial(train_step, compute_metrics_fn=spec.compute_metrics),
-        static_argnames=["LS_avail", "learning_rule", "task", "shuffle"],
+        static_argnames=["LS_avail", "learning_rule", "task", "diffusion_mode"],
     )
     eval_step_fn = jax.jit(
         partial(eval_step, compute_metrics_fn=spec.compute_metrics),
@@ -377,7 +379,7 @@ def train_and_evaluate(cfg, spec: TaskSpec) -> TrainState:
             c_reg=cfg.train_params.c_reg,
             learning_rule=cfg.train_params.learning_rule,
             task=cfg.task.task_type,
-            shuffle=cfg.train_params.shuffle,
+            diffusion_mode=cfg.train_params.diffusion_mode,
             shuffle_key=sub_shuffle_key,
             spec=spec,
         )
