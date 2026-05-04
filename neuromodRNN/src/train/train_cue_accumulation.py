@@ -14,8 +14,7 @@ from jax import numpy as jnp
 from optax import losses
  
 from src.modRNN import learning_utils, plots, tasks
-from src.modRNN.training import TaskSpec, train_and_evaluate
-from src.modRNN.training.common import epoch_seed_sequence
+from src.modRNN.training import TaskSpec, train_and_evaluate, epoch_seed_sequence
 from flax.typing import Array
  
  
