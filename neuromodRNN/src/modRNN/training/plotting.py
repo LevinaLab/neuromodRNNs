@@ -23,7 +23,7 @@ def plot_training_curves(
     Plot train/eval curves for each metric in spec.metric_names.
 
     Produces a 2 x len(metrics) grid: top row = training, bottom row = eval.
-    Saved to `<output_dir>/figures/training.svg`.
+    Saved to `<output_dir>/figures/training.png`.
     """
     figures_dir = os.path.join(output_dir, 'figures')
     os.makedirs(figures_dir, exist_ok=True)
@@ -54,7 +54,7 @@ def plot_training_curves(
         axs[1, col].legend()
 
     fig.tight_layout()
-    fig.savefig(os.path.join(figures_dir, 'training.svg'), format='svg')
+    fig.savefig(os.path.join(figures_dir, 'training.png'), format='png')
     plt.close(fig)
 
 
@@ -67,11 +67,11 @@ def plot_final_weights(state, cfg, output_dir: str) -> None:
     plots.plot_LSNN_weights(
         state,
         layer_names=layer_names,
-        save_path=os.path.join(figures_dir, "weights.svg"),
+        save_path=os.path.join(figures_dir, "weights.png"),
     )
     plots.plot_weights_spatially_indexed(
         state, cfg.net_arch.gridshape,
-        os.path.join(figures_dir, "spatially_weights.svg"),
+        os.path.join(figures_dir, "spatially_weights.png"),
     )
 
 
