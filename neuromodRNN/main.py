@@ -1,4 +1,4 @@
-"""Entry point. Composes a Hydra config and dispatches to the right train script."""
+"""Entry point. Composes a Hydra config and dispatches to the right entry point."""
  
 import logging
 import os
@@ -19,6 +19,9 @@ from src.train import (
     train_cue_accumulation,
     train_delayed_match,
     train_pattern_generation,
+    align_cue_accumulation,
+    align_delayed_match,
+    align_pattern_generation,
 )
 from src.config.config_dataclass import (
     NetworkArchitecture,
@@ -27,6 +30,7 @@ from src.config.config_dataclass import (
     SaveFiles,
 )
 from src.config.tasks_dataclass import Task, register_configs
+from src.config.alignment_dataclass import AlignmentConfig
  
  
 @dataclass
@@ -37,6 +41,10 @@ class ConfigTrain:
     train_params: TrainParams = field(default_factory=TrainParams)
     task: Task = MISSING
     save_paths: SaveFiles = field(default_factory=SaveFiles)
+    alignment: AlignmentConfig = field(default_factory=AlignmentConfig)
+    # "training" — standard learning experiment (train + eval).
+    # "alignment" — train with BPTT, periodically measure rule alignment.
+    experiment_type: str = "training"
  
  
 # Register ConfigTrain as the schema for "base_config", which is the
@@ -47,25 +55,29 @@ cs.store(name="base_config", node=ConfigTrain)
 register_configs()
  
  
-# Map from the task_name field to the train script's entry point. Adding
-# a new task means: register its dataclass in tasks_dataclass.py, add a
-# YAML in conf/task/, and add an entry here.
-_TRAIN_ENTRYPOINTS = {
-    "cue_accumulation": train_cue_accumulation.train_and_evaluate_entry,
-    "delayed_match": train_delayed_match.train_and_evaluate_entry,
-    "pattern_generation": train_pattern_generation.train_and_evaluate_entry,
+# Map from (experiment_type, task_name) to the right entry point. Adding
+# a new experiment type or task means adding entries here; the dispatcher
+# below looks up the pair.
+_ENTRYPOINTS = {
+    ("training", "cue_accumulation"):    train_cue_accumulation.train_and_evaluate_entry,
+    ("training", "delayed_match"):       train_delayed_match.train_and_evaluate_entry,
+    ("training", "pattern_generation"):  train_pattern_generation.train_and_evaluate_entry,
+    ("alignment", "cue_accumulation"):   align_cue_accumulation.train_and_evaluate_entry,
+    ("alignment", "delayed_match"):      align_delayed_match.train_and_evaluate_entry,
+    ("alignment", "pattern_generation"): align_pattern_generation.train_and_evaluate_entry,
 }
  
  
 @hydra.main(version_base=None, config_path="conf", config_name="config")
 def main(cfg: ConfigTrain) -> None:
     logger = logging.getLogger(__name__)
-    entrypoint = _TRAIN_ENTRYPOINTS.get(cfg.task.task_name)
+    key = (cfg.experiment_type, cfg.task.task_name)
+    entrypoint = _ENTRYPOINTS.get(key)
     if entrypoint is None:
         logger.error(
-            "Unknown task %r. Known tasks: %s",
-            cfg.task.task_name,
-            sorted(_TRAIN_ENTRYPOINTS.keys()),
+            "Unknown (experiment_type, task) pair %r. Known pairs: %s",
+            key,
+            sorted(_ENTRYPOINTS.keys()),
         )
         return
     entrypoint(cfg)
