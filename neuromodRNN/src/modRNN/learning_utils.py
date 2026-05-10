@@ -10,7 +10,7 @@ from typing import (
  )
 
 from flax.typing import Array
-
+from jax.random import PRNGKey
 
 
 # Name of variables try to follow the notation from --> Bellec et al. 2020: A solution to the learning dilemma for recurrent networks of spiking neurons
@@ -283,39 +283,54 @@ def shift_one_time_step_back(array):
 
 
 
-
-def shuffle_error_grid(key, error_grid):
-    """Shuffle the error grid within the same batch and within same neurotransmitter"""
-    
-    n_batches, _, h, w = error_grid.shape
-    
-    # Create a random permutation of indices for each batch
-    batch_indices = jnp.arange(h * w)
-    
-    #Shuffle each batch independently
-    shuffled_indices = jax.vmap(lambda k: jax.random.permutation(k, batch_indices, independent=True))(jax.random.split(key, n_batches))
-
-    # Flatten the last two dimensions for easy reshaping
-    flat_grid = error_grid.reshape(n_batches, 1, h * w)
-    
-    # Apply the shuffled indices to the last two dimensions for each batch
-    shuffled_grid = jax.vmap(lambda x_b, idx: x_b[:, idx])(flat_grid, shuffled_indices)
-    
-    # Reshape back to the original shape
-    shuffled_grid = shuffled_grid.reshape(n_batches, 1, h, w)
-    
-    return shuffled_grid
-
-def apply_fixed_shuffle(error_grid, permutation):
-
-    n_batches, _, h, w = error_grid.shape
+def sample_permutation_per_batch(key: PRNGKey, n_batches: int, n_cells: int) -> Array:
+    """Draw an independent permutation of [0, n_cells) for each batch element.
  
-    # Flatten the spatial dimensions; apply the permutation; reshape back.
-    flat_grid = error_grid.reshape(n_batches, 1, h * w)
+    Returns
+    -------
+    Array, shape (n_batches, n_cells), dtype int.
+    """
+    base = jnp.arange(n_cells)
+    keys = jax.random.split(key, n_batches)
+    return vmap(lambda k: jax.random.permutation(k, base, independent=True))(keys)
  
-    # Same permutation applied to every batch. (Compare to
-    # shuffle_error_grid, which uses vmap to apply a different per-batch
-    # permutation.) Broadcasting handles the n_batches axis.
-    shuffled_flat = flat_grid[:, :, permutation]
  
-    return shuffled_flat.reshape(n_batches, 1, h, w)
+def invert_permutation(permutation: Array) -> Array:
+    """Inverse of a permutation (or stack of permutations along axis 0).
+ 
+    For a permutation P, `argsort(P)` is P^{-1}: applying P then argsort(P)
+    is the identity. Works for both 1-D (shared) and 2-D (per-batch) inputs.
+    """
+    return jnp.argsort(permutation, axis=-1)
+ 
+ 
+def apply_permutation(error_grid: Array, permutation: Array) -> Array:
+    """Apply `permutation` to the spatial dimensions of `error_grid`.
+ 
+    Parameters
+    ----------
+    error_grid : Array, shape (n_batches, n_channels, h, w)
+    permutation : Array
+        Either shape (h*w,) — one permutation shared across the batch — or
+        shape (n_batches, h*w) — a per-batch permutation. Selected by ndim.
+ 
+    Returns
+    -------
+    Array, shape (n_batches, n_channels, h, w).
+    """
+    n_batches, n_channels, h, w = error_grid.shape
+    flat = error_grid.reshape(n_batches, n_channels, h * w)
+ 
+    if permutation.ndim == 1:
+        # Shared permutation: broadcast over the batch axis.
+        permuted_flat = flat[:, :, permutation]
+    elif permutation.ndim == 2:
+        # Per-batch permutation: index each batch element with its own perm.
+        # vmap over the batch axis of both `flat` and `permutation`.
+        permuted_flat = vmap(lambda x, p: x[:, p])(flat, permutation)
+    else:
+        raise ValueError(
+            f"permutation must be 1-D or 2-D, got shape {permutation.shape}"
+        )
+ 
+    return permuted_flat.reshape(n_batches, n_channels, h, w)

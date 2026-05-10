@@ -196,35 +196,33 @@ def neuromod_online(
     key: PRNGKey,
 ):
     """
-    "Online" version of neuromodulator-diffusion gradient updates: per-step
-    learning signals are diffused over a 2D grid, accumulated, and combined
-    with eligibility traces to produce a per-batch gradient.
+    "Online" version of neuromodulator-diffusion gradient updates.
  
-    Updates are computed online (within a scan over time) but applied only
-    after the end of the batch.
+    Diffusion-mode semantics
+    ------------------------
+    The shuffle is applied as a CONJUGATION of the diffusion operator K:
+    the per-step update is P^{-1} K P, i.e. permute into the diffusion
+    grid, diffuse there, permute back. This is equivalent to running
+    diffusion on a rewired graph while injection and readout still happen
+    at the network's grid positions.
+ 
+    Modes:
+      - DIFFUSION_MODE_ALIGNED: P = identity. Plain K.
+      - DIFFUSION_MODE_SHUFFLED_FIXED: P drawn once at init, shared
+        across batch and time. Stationary rewired-topology control.
+      - DIFFUSION_MODE_SHUFFLED_PER_STEP: P drawn fresh every step,
+        independently per batch element. Non-stationary control.
  
     Parameters
     ----------
-    diffusion_mode
-        One of:
-          - DIFFUSION_MODE_ALIGNED: no shuffle. Diffusion respects network
-            grid locality.
-          - DIFFUSION_MODE_SHUFFLED_PER_STEP: fresh permutation every
-            step, per batch.
-          - DIFFUSION_MODE_SHUFFLED_FIXED: single permutation shared
-            across the whole run, read from
-            spatial_params['ALIFCell_0']['shuffle_permutation_fixed'].
- 
     key
-        PRNG key. For SHUFFLED_PER_STEP, fresh subkeys are split off each
-        step (via the scan carry) so the per-step permutation actually
-        changes. For other modes, the key is unused but threaded through
-        the scan carry for signature uniformity.
+        PRNG key. Used (and split) only in SHUFFLED_PER_STEP. Threaded
+        through the scan carry in all modes for signature uniformity.
  
     Returns
     -------
-    Per-weight gradient (n_pre, n_post): the time-averaged task update
-    over the LS_avail trailing time steps plus the summed regularization
+    Per-weight gradient (n_pre, n_post): time-averaged task update over
+    the LS_avail trailing time steps plus the summed regularization
     update.
     """
     if diffusion_mode not in _VALID_DIFFUSION_MODES:
@@ -238,83 +236,95 @@ def neuromod_online(
     diff_K = spatial_params['ALIFCell_0']['diff_K']
     radius = (jnp.shape(diff_K)[2] - 1) // 2
     cells_loc = spatial_params['ALIFCell_0']['cells_loc']
+    cell_rows, cell_cols = cells_loc[:, 0], cells_loc[:, 1]
  
-    # For SHUFFLED_FIXED, the permutation was created once at model init
-    # and lives in spatial_params. For other modes, it's unused.
+    # Fixed-mode permutation: read the permutation from spatial_params and
+    # derive its inverse here. Avoid having to recompute inside of scan
     if diffusion_mode == DIFFUSION_MODE_SHUFFLED_FIXED:
-        fixed_permutation = spatial_params['ALIFCell_0']['shuffle_permutation_fixed']
+        fixed_perm = spatial_params['ALIFCell_0']['shuffle_permutation_fixed']
+        fixed_perm_inv = learning_utils.invert_permutation(fixed_perm)
     else:
-        fixed_permutation = None
+        fixed_perm = None
+        fixed_perm_inv = None
  
-    # Firing-rate regularization error (constant over the scan).
+    # Firing-rate regularization error — constant across the scan.
     f_error = learning_utils.firing_rate_error(z, trial_length, f_target)
     feedback_kernel = eligibility_params['ReadOut_0']['feedback_weights']
  
     y_batch, true_y_batch, eligibility_input = batch_inputs
     if true_y_batch.ndim == 2:
         true_y_batch = jnp.expand_dims(true_y_batch, axis=-1)
-    y_batch = jnp.transpose(y_batch, (1, 0, 2))               # (n_t, n_b, n_out)
-    true_y_batch = jnp.transpose(true_y_batch, (1, 0, 2))     # (n_t, n_b, n_out)
+    y_batch = jnp.transpose(y_batch, (1, 0, 2))           # (n_t, n_b, n_out)
+    true_y_batch = jnp.transpose(true_y_batch, (1, 0, 2))
     batch_size = jnp.shape(true_y_batch)[1]
  
     # Mask: 1 where the learning signal is available, 0 otherwise.
-    # If LS_avail == 0, the signal is available throughout (a special case).
-    def create_LS_vector():
-        LS_vector = jnp.ones_like(y_batch)
-        if LS_avail != 0:
-            LS_vector = LS_vector.at[:-LS_avail].set(0)
-        return LS_vector
-    LS_vector = create_LS_vector()
+    # LS_avail == 0 is a sentinel for "available throughout".
+    LS_vector = jnp.ones_like(y_batch)
+    if LS_avail != 0:
+        LS_vector = LS_vector.at[:-LS_avail].set(0)
  
-    # Network-grid positions for each cell. Used identically every step
-    # for both injection and readout, regardless of mode.
-    cell_rows, cell_cols = cells_loc[:, 0], cells_loc[:, 1]
+    def conjugate_diffuse(error_grid, step_key):
+        """Apply P^{-1} K P for one step.
+ 
+        Returns
+        -------
+        diffused_aligned : Array
+            Diffused grid mapped back to network coordinates.
+        next_step_key : PRNGKey
+            Key to thread into the next scan iteration.
+        """
+        # 1. Permute into the diffusion grid.
+        if diffusion_mode == DIFFUSION_MODE_ALIGNED:
+            permuted = error_grid
+            perm_inv = None
+            next_step_key = step_key
+        elif diffusion_mode == DIFFUSION_MODE_SHUFFLED_FIXED:
+            permuted = learning_utils.apply_permutation(error_grid, fixed_perm)
+            perm_inv = fixed_perm_inv
+            next_step_key = step_key
+        else:  # DIFFUSION_MODE_SHUFFLED_PER_STEP
+            step_use_key, next_step_key = jax.random.split(step_key)
+            n_b, _, h, w = error_grid.shape
+            perm = learning_utils.sample_permutation_per_batch(
+                step_use_key, n_b, h * w,
+            )
+            perm_inv = learning_utils.invert_permutation(perm)
+            permuted = learning_utils.apply_permutation(error_grid, perm)
+ 
+        # 2. Diffuse on the (possibly permuted) grid.
+        diffused = learning_utils.error_diffusion(
+            carry=permuted, inputs=jnp.zeros(1), params=(radius, diff_K),
+        )
+ 
+        # 3. Permute back so injection/readout happen at network positions.
+        if perm_inv is None:
+            diffused_aligned = diffused
+        else:
+            diffused_aligned = learning_utils.apply_permutation(diffused, perm_inv)
+ 
+        return diffused_aligned, next_step_key
  
     def one_step_gradient(carries, inputs):
-        # Carry now includes the PRNG key so per-step shuffle can use a
-        # fresh permutation each step. Without this, all steps would share
-        # the same closure-captured key — the latent bug in the
-        # pre-refactor code.
         eligibility_carries, error_grid, step_key = carries
         y_step, true_y_step, eligibility_input_step, LS_avail_step = inputs
  
-        # Direct feedback: cell's "own" new error this step.
+        # Direct feedback for this step's new error.
         task_error = learning_utils.error_signal(y=y_step, true_y=true_y_step)
         task_error *= LS_avail_step
         incoming_L = learning_utils.batched_learning_signal(
             task_error, feedback_kernel,
-        )                                                     # (n_b, n_rec)
+        )                                                 # (n_b, n_rec)
  
-        # Step 1: diffuse the previous step's error grid.
-        diffused_error_grid = learning_utils.error_diffusion(
-            carry=error_grid, inputs=jnp.zeros(1),
-            params=(radius, diff_K),
-        )                                                     # (n_b, 1, h, w)
- 
-        # Step 2: optionally shuffle the diffused grid. 
-        if diffusion_mode == DIFFUSION_MODE_SHUFFLED_PER_STEP:
-            step_use_key, next_step_key = jax.random.split(step_key)
-            grid_after_shuffle = learning_utils.shuffle_error_grid(
-                key=step_use_key, error_grid=diffused_error_grid,
-            )
-        elif diffusion_mode == DIFFUSION_MODE_SHUFFLED_FIXED:
-            grid_after_shuffle = learning_utils.apply_fixed_shuffle(
-                error_grid=diffused_error_grid,
-                permutation=fixed_permutation,
-            )
-            next_step_key = step_key                          # unused but threaded
-        else:                                                 # DIFFUSION_MODE_ALIGNED
-            grid_after_shuffle = diffused_error_grid
-            next_step_key = step_key
- 
-        # Step 3: inject incoming_L at network positions.
-        new_error_grid = grid_after_shuffle.at[
+        # Diffuse the previous step's grid via P^{-1} K P, then inject
+        # new errors at network positions and read out at network positions.
+        diffused_aligned, next_step_key = conjugate_diffuse(error_grid, step_key)
+        new_error_grid = diffused_aligned.at[
             :, 0, cell_rows, cell_cols
         ].add(incoming_L)
+        L = new_error_grid[:, 0, cell_rows, cell_cols]    # (n_b, n_rec)
  
-        # Step 4: read L from network positions.
-        L = new_error_grid[:, 0, cell_rows, cell_cols]        # (n_b, n_rec)
- 
+        # Eligibility traces.
         new_eligibility_carries, eligibility_trace = (
             learning_utils.batched_eligibitity_trace(
                 eligibility_carries, eligibility_input_step, eligibility_params,
@@ -326,11 +336,12 @@ def neuromod_online(
                 eligibility_trace, eligibility_params,
             )
         )
+ 
+        # Task and regularization updates.
         task_update = jnp.einsum(
             'bri,bri->ir',
             jnp.expand_dims(L, axis=2), low_pass_trace,
-        )                                                     # (n_pre, n_post)
-        task_update /= batch_size
+        ) / batch_size                                    # (n_pre, n_post)
  
         reg_update = (
             (c_reg / trial_length[:, None, None]) * f_error[:, :, None]
@@ -342,7 +353,7 @@ def neuromod_online(
             (new_eligibility_carries, new_error_grid, next_step_key),
             (task_update, reg_update),
         )
- 
+    
     # Scan over time.
     eligibility_carries, init_error_grid = batch_init_carries
     _, updates = lax.scan(
@@ -356,9 +367,6 @@ def neuromod_online(
         jnp.mean(task_updates[-LS_avail:, :, :], axis=0)
         + jnp.sum(reg_updates, axis=0)
     )
-    
- 
-    
  
  
 def output_grads(batch_init_carries: Dict[str,Array], batch_inputs: Tuple[Array, Array, Array], params: Tuple[Dict[str,Dict],Dict[str,Dict]], LS_avail:float) ->Tuple[Array, Array]:
