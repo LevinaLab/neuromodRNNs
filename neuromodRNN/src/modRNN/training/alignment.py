@@ -1,22 +1,24 @@
 """
-Alignment experiment: train with BPTT, periodically measure how well
-alternative learning rules' gradients align with the BPTT gradient.
+Alignment experiment: train with a configurable learning rule, periodically
+measure how well alternative learning rules' gradients align with BPTT.
  
 This experiment type is parallel to the standard training loop in
 `training_loop.py`. It shares all primitives (model, state,
 train_step) but its orchestration is different:
  
-  * Training is always BPTT — it's the "ground truth" gradient.
-  * No periodic evaluation, no early stopping, no example plots:
-    the experiment's purpose is gradient comparison, not task
-    performance.
+  * Training uses the rule specified in cfg.alignment.training_rule
+    (and cfg.alignment.training_diffusion_mode for diffusion variants).
+    BPTT is the default but any supported rule may be used.
+  * BPTT always serves as the alignment reference, regardless of which
+    rule is used for training. At alignment epochs the BPTT gradient is
+    computed in a separate replay pass over the same micro-batches.
  
 Configuration: the user specifies a list of "comparisons" in
 `cfg.alignment.comparisons`. Each comparison has a tag (used for
 output filenames), a rule name, and any rule-specific kwargs (notably
 `diffusion_mode` for diffusion). This lets a single run measure
 alignment of multiple variants — e.g., e_prop and three diffusion
-modes — all against the same BPTT training.
+modes — all against the same BPTT reference.
  
 Alignment measurement details
 -----------------------------
@@ -24,24 +26,23 @@ At measurement epochs (every cfg.alignment.interval epochs):
  
   1. Snapshot the network state BEFORE this epoch's training step
      (call it state_t). Under optax.MultiSteps with grad accumulation,
-     state_t is also the state the optimizer's BPTT gradients are
-     computed against — params don't update until the Nth
-     micro-batch.
+     state_t is also the state the optimizer's gradients are computed
+     against — params don't update until the Nth micro-batch.
  
-  2. The BPTT step accumulates per-micro-batch gradients during this
-     epoch's training pass. Mean of those = the iteration-level BPTT
-     gradient that the optimizer just used.
+  2. After the training pass, replay every micro-batch in this epoch
+     through BPTT at state_t. Mean of those = the iteration-level BPTT
+     reference gradient.
  
   3. For each comparison, replay every micro-batch in this epoch
      through that comparison's rule, at state_t. Mean of those = the
      iteration-level gradient that comparison would have produced.
  
   4. Compute per-layer cosine similarity / angle / norms between the
-     two iteration-level gradients.
+     BPTT reference and each comparison's gradient.
  
-This setup matches the structure of training: the optimizer compares
-mean-of-N BPTT gradients with mean-of-N alternative-rule gradients,
-both at the same state.
+This setup keeps BPTT as the fixed reference regardless of the training
+rule, and ensures all gradients (BPTT and comparisons) are computed at
+the same pre-update state.
  
 Output structure (under hydra.run.dir):
   train_info/         BPTT training metrics, identical to standard run.
@@ -61,7 +62,7 @@ import logging
 import os
 import pickle
 from functools import partial
-from typing import Any, Callable, Dict, List
+from typing import Callable, Dict, List
  
 import hydra
 import jax
@@ -79,7 +80,7 @@ from src.modRNN.training.primitives import (
 from src.modRNN.training.task_spec import TaskSpec
  
 from flax.training.train_state import TrainState
-from flax.typing import Array, PRNGKey
+from flax.typing import Array
  
 logger = logging.getLogger(__name__)
  
@@ -204,6 +205,34 @@ def _build_grad_fn_for_comparison(comparison, cfg, spec: TaskSpec) -> Callable:
     return jax.jit(call)
  
  
+def _build_bptt_grad_fn(cfg, spec: TaskSpec) -> Callable:
+    """
+    Return a jitted function (state, batch, key) -> grads that always
+    computes the BPTT gradient.
+ 
+    This is the fixed reference used during alignment measurement,
+    independent of whichever rule is used for training.
+    """
+    closure = jax.tree_util.Partial(spec.optimization_loss)
+ 
+    def call(state, batch, key):
+        _, grads = learning_rules.compute_grads(
+            batch=batch,
+            state=state,
+            optimization_loss_fn=closure,
+            LS_avail=cfg.task.LS_avail,
+            f_target=cfg.train_params.f_target,
+            c_reg=cfg.train_params.c_reg,
+            learning_rule="BPTT",
+            task=cfg.task.task_type,
+            diffusion_mode="aligned",   # ignored for BPTT
+            key=key,
+        )
+        return grads
+ 
+    return jax.jit(call)
+ 
+ 
 # =============================================================================
 # Alignment history accumulator
 # =============================================================================
@@ -246,8 +275,9 @@ class _AlignmentHistory:
 # =============================================================================
 def train_and_compute_alignment(cfg, spec: TaskSpec) -> TrainState:
     """
-    Train with BPTT; periodically measure alignment between BPTT and
-    each comparison in cfg.alignment.comparisons.
+    Train with cfg.alignment.training_rule; periodically measure alignment
+    between BPTT (always the reference) and each comparison in
+    cfg.alignment.comparisons.
  
     Saves both standard training metrics (under train_info/) and
     alignment metrics (under align_info/).
@@ -277,13 +307,20 @@ def train_and_compute_alignment(cfg, spec: TaskSpec) -> TrainState:
         mini_batch_size=cfg.train_params.train_mini_batch_size,
     )
  
-    # Training step always uses BPTT.
+    # Read the user-specified training rule from config.
+    training_rule = cfg.train_params.learning_rule
+    training_diffusion_mode = cfg.train_params.diffusion_mode
+ 
     train_step_fn = jax.jit(
         partial(train_step, compute_metrics_fn=spec.compute_metrics),
         static_argnames=["LS_avail", "learning_rule", "task", "diffusion_mode"],
     )
  
     closure = jax.tree_util.Partial(spec.optimization_loss)
+ 
+    # Dedicated BPTT grad function used as the alignment reference.
+    # Always computes BPTT gradients regardless of the training rule.
+    bptt_grad_fn = _build_bptt_grad_fn(cfg, spec)
  
     # Pre-build per-comparison grad functions. JIT cache key is
     # per-comparison, so each (rule, diffusion_mode) combination
@@ -308,8 +345,9 @@ def train_and_compute_alignment(cfg, spec: TaskSpec) -> TrainState:
  
     # -- Training loop --------------------------------------------------
     logger.info(
-        "Starting alignment experiment: training with BPTT, measuring "
+        "Starting alignment experiment: training with %s, measuring "
         "alignment of %s every %d epochs.",
+        training_rule,
         [c.tag for c in cfg.alignment.comparisons],
         cfg.alignment.interval,
     )
@@ -321,36 +359,32 @@ def train_and_compute_alignment(cfg, spec: TaskSpec) -> TrainState:
         # Snapshot the pre-training state if this is an alignment epoch.
         # Under optax.MultiSteps with grad accumulation, params don't
         # actually change until the Nth call to apply_gradients within
-        # the iteration, so all BPTT grads in this iteration are
-        # computed at this state. JAX arrays are immutable, so this is
-        # a real snapshot, not a reference that the training step will
-        # mutate.
+        # the iteration. JAX arrays are immutable, so this is a real
+        # snapshot, not a reference that the training step will mutate.
+        # The BPTT reference and all comparison rules are replayed at
+        # this state after the training pass completes.
         state_for_alignment = state if is_align_epoch else None
         microbatches_seen: List[Dict[str, Array]] = []
-        bptt_grad_sum = None
  
-        # -- BPTT training pass ------------------------------------
+        # -- Training pass (configurable rule) ---------------------
         train_batches = spec.make_train_batch(cfg, epoch=epoch)
         batch_metrics = []
         for batch in train_batches:
-            state, metrics, grads = train_step_fn(
+            state, metrics, _ = train_step_fn(
                 state=state, batch=batch,
                 optimization_loss_fn=closure,
                 LS_avail=cfg.task.LS_avail,
                 f_target=cfg.train_params.f_target,
                 c_reg=cfg.train_params.c_reg,
-                learning_rule="BPTT",
+                learning_rule=training_rule,
                 task=cfg.task.task_type,
-                diffusion_mode="aligned",   # ignored for BPTT
+                diffusion_mode=training_diffusion_mode,
                 key=sub_rule_key,
             )
             batch_metrics.append(metrics)
  
             if is_align_epoch:
                 microbatches_seen.append(batch)
-                if bptt_grad_sum is None:
-                    bptt_grad_sum = _grad_pytree_zeros_like(grads)
-                bptt_grad_sum = _accumulate(bptt_grad_sum, grads)
  
         batch_metrics = jax.device_get(batch_metrics)
         train_metrics = normalize_batch_metrics(batch_metrics, spec.metric_names)
@@ -359,13 +393,24 @@ def train_and_compute_alignment(cfg, spec: TaskSpec) -> TrainState:
         train_history["iterations"].append(epoch)
  
         if epoch % 25 == 0 or epoch == 1:
-            logger.info("epoch %d  BPTT train loss=%.4f",
-                        epoch, train_metrics.loss)
+            logger.info("epoch %d  train loss=%.4f  (rule: %s)",
+                        epoch, train_metrics.loss, training_rule)
  
         # -- Periodic alignment measurement -------------------------
         if is_align_epoch:
             alignment_iterations.append(epoch)
             n_microbatches = len(microbatches_seen)
+ 
+            # Compute BPTT reference gradient by replaying all micro-
+            # batches at the snapshotted state. This is independent of
+            # the training rule used above.
+            bptt_key, rule_key = random.split(rule_key)
+            bptt_grad_sum = None
+            for batch in microbatches_seen:
+                bptt_grads = bptt_grad_fn(state_for_alignment, batch, bptt_key)
+                if bptt_grad_sum is None:
+                    bptt_grad_sum = _grad_pytree_zeros_like(bptt_grads)
+                bptt_grad_sum = _accumulate(bptt_grad_sum, bptt_grads)
             bptt_grad_mean = _scale(bptt_grad_sum, 1.0 / n_microbatches)
  
             # Each comparison gets its own subkey, split from a

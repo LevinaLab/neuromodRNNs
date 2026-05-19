@@ -33,8 +33,6 @@ fi
 source $HOME/.bashrc
 conda activate /mnt/lustre/work/martius/mot736/.conda/modRNN
  
-set -x
- 
 # --- Job info ----------------------------------------------------------------
 echo "---------- JOB INFOS ------------"
 scontrol show job $SLURM_JOB_ID
@@ -51,7 +49,7 @@ python main.py \
     +experiment=${EXPERIMENT} \
     net_params.seed=${SEED} \
     task.seed=${SEED} \
-    save_paths.experiment_name="${TASK}_${EXPERIMENT}" \
+    save_paths.experiment_name="${EXPERIMENT}" \
     save_paths.condition="seed_${SEED}"
  
 conda deactivate

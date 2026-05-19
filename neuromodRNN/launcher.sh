@@ -40,14 +40,14 @@ if [[ ! -f "$SEEDS_FILE" ]]; then
     exit 1
 fi
  
-VALID_TASKS=("pattern_generation" "cue_accumulation" "delayed_match")
+VALID_TASKS=("pattern_generation" "cue_accumulation" "delayed_match" "long_LS_delayed_match" "long_LS_cue_accumulation")
 if [[ ! " ${VALID_TASKS[*]} " =~ " ${TASK} " ]]; then
     echo "ERROR: Unknown task '$TASK'."
     echo "Valid options: ${VALID_TASKS[*]}"
     exit 1
 fi
  
-VALID_EXPERIMENTS=("BPTT" "e_prop_hardcoded" "diffusion" "per_step_shuffle_diffusion" "fixed_shuffle_diffusion" "sparse_recurrent")
+VALID_EXPERIMENTS=("BPTT" "e_prop_hardcoded" "diffusion" "per_step_shuffle_diffusion" "fixed_shuffle_diffusion" "sparse_recurrent" "align_local_connectivity_BPTT" "align_local_connectivity_eprop" "align_local_connectivity_diffusion" "align_local_connectivity_diffusion_shuffle_fix" "align_local_connectivity_diffusion_shuffle_per_step")
 if [[ ! " ${VALID_EXPERIMENTS[*]} " =~ " ${EXPERIMENT} " ]]; then
     echo "ERROR: Unknown experiment '$EXPERIMENT'."
     echo "Valid options: ${VALID_EXPERIMENTS[*]}"
@@ -59,6 +59,11 @@ echo "Submitting jobs | task='$TASK' | experiment='$EXPERIMENT' | seeds='$SEEDS_
  
 while IFS= read -r seed || [[ -n "$seed" ]]; do
     seed="${seed//$'\r'/}"   # strip carriage returns
+
+    # skip comments and empty lines
+    [[ "$seed" =~ ^[[:space:]]*# ]] && continue
+    [[ -z "$seed" ]] && continue
+
     echo "  Submitting seed=$seed ..."
     sbatch --export=SEED="$seed",TASK="$TASK",EXPERIMENT="$EXPERIMENT" worker.sh
 done < "$SEEDS_FILE"

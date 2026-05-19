@@ -1,0 +1,36 @@
+# @package _global_
+#
+# Alignment experiment: train with diffusion, measure alignment of e_prop
+# and three diffusion modes against BPTT every 50 epochs.
+#
+# Each comparison runs in the same training run — each comparison's gradient is 
+# computed by replaying the same micro-batches through
+# that rule at the same network state.
+ 
+experiment_type: alignment
+ 
+net_arch:
+  connectivity_rec_layer: local
+ 
+train_params:
+  learning_rule: diffusion
+  c_reg: 0.0
+  iterations: 2001
+  diffusion_mode: aligned 
+  
+alignment:
+  comparisons:
+    - tag: BPTT
+      rule: BPTT
+    - tag: eprop
+      rule: e_prop_hardcoded
+    - tag: diffusion_aligned
+      rule: diffusion
+      diffusion_mode: aligned
+    - tag: diffusion_per_step
+      rule: diffusion
+      diffusion_mode: shuffled_per_step
+    - tag: diffusion_fixed
+      rule: diffusion
+      diffusion_mode: shuffled_fixed
+  interval: 50

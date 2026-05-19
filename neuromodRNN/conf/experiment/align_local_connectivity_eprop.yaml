@@ -1,23 +1,23 @@
 # @package _global_
 #
-# Alignment experiment: train with BPTT, measure alignment of e_prop
+# Alignment experiment: train with e-prop, measure alignment of e_prop
 # and three diffusion modes against BPTT every 50 epochs.
 #
-# Each comparison runs in the same training run — the BPTT pass is
-# shared, and each comparison's gradient is computed by replaying the
-# same micro-batches through that rule at the same network state.
+# Each comparison runs in the same training run — each comparison's gradient is 
+# computed by replaying the same micro-batches through
+# that rule at the same network state.
  
 experiment_type: alignment
  
-# Training is BPTT, regardless of any other experiment-side settings.
 net_arch:
   connectivity_rec_layer: local
  
 train_params:
-  learning_rule: BPTT
+  learning_rule: e_prop_hardcoded
   c_reg: 0.0
-  iterations: 1051
- 
+  iterations: 2001
+  diffusion_mode: aligned 
+  
 alignment:
   comparisons:
     - tag: BPTT
