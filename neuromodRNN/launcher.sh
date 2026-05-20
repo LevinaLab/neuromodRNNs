@@ -47,7 +47,7 @@ if [[ ! " ${VALID_TASKS[*]} " =~ " ${TASK} " ]]; then
     exit 1
 fi
  
-VALID_EXPERIMENTS=("BPTT" "e_prop_hardcoded" "diffusion" "per_step_shuffle_diffusion" "fixed_shuffle_diffusion" "sparse_recurrent" "align_local_connectivity_BPTT" "align_local_connectivity_eprop" "align_local_connectivity_diffusion" "align_local_connectivity_diffusion_shuffle_fix" "align_local_connectivity_diffusion_shuffle_per_step")
+VALID_EXPERIMENTS=("BPTT" "e_prop_hardcoded" "diffusion" "per_step_shuffle_diffusion" "fixed_shuffle_diffusion" "sparse_recurrent" "align_local_connectivity_BPTT" "align_local_connectivity_eprop" "align_local_connectivity_diffusion_aligned" "align_local_connectivity_diffusion_fixed" "align_local_connectivity_diffusion_per_step")
 if [[ ! " ${VALID_EXPERIMENTS[*]} " =~ " ${EXPERIMENT} " ]]; then
     echo "ERROR: Unknown experiment '$EXPERIMENT'."
     echo "Valid options: ${VALID_EXPERIMENTS[*]}"
