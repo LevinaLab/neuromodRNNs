@@ -1,18 +1,19 @@
+
 #TODO: so far, all neuromodulator diffuse equally. Might be an additional thing to allow them to have differen diffusion params
-
-
+ 
+ 
 """ Build personalized initializers used in models"""
-
-
+ 
+ 
 from jax import random, numpy as jnp
 from flax import linen as nn 
-
+ 
 import sys
 import os
-
+ 
 # Get the current directory of this file (which is 'project/src/general_src')
 file_dir = os.path.dirname(os.path.abspath(__file__))
-
+ 
 # Construct the path to the `src` directory
 sys.path.append(file_dir + "/..")
 from modRNN import spatial_embedings
@@ -23,25 +24,25 @@ from typing import (
   Tuple, 
   Union, 
  )
-
+ 
 from flax.typing import (
   Array,
   PRNGKey,
   Dtype,    
 )
-
-
-
-
+ 
+ 
+ 
+ 
 def generalized_initializer(init_fn:Callable, gain:float=1.0, avoid_self_recurrence:bool=False, mask_connectivity:Union[None, Array]=None)-> Callable:
     """
     Creates a new initializer function that modifies the output of a given initialization function.
-
+ 
     This function generates an initializer which first uses a provided initialization function (`init_fn`)
     to initialize the weights. The weights are then scaled by a specified gain factor. Optionally, 
     the function can also modify the weights to avoid self-recurrence by subtracting the identity matrix 
     from the initialized weights, applicable only for square matrices (e.g., recurrent layers).
-
+ 
     Parameters
     ----------
     init_fn : callable
@@ -63,26 +64,26 @@ def generalized_initializer(init_fn:Callable, gain:float=1.0, avoid_self_recurre
     callable
         A new initializer function that takes the arguments (key, shape, dtype) and returns an
         array of initialized weights, optionally modified as described.
-
+ 
     Raises
     ------
     ValueError
         If `avoid_self_recurrence` is True and the shape of the weights is not square, an error
         is raised indicating that the axes -2 and -1 must have the same size.
-
+ 
     """
-
+ 
     def initializer(key:PRNGKey, shape:Tuple[int], dtype:Dtype =jnp.float32):
         # Use the provided initializer function to initialize the weights (all the linen.initializers use this initialization structure)
         w = init_fn(key, shape, dtype)
         
         # Apply the gain scaling
         w *= gain
-
+ 
         # If applicable, apply connectivity Mask
         if mask_connectivity is not None:
             w = w * mask_connectivity
-
+ 
         # Subtract the identity matrix if required
         if avoid_self_recurrence:
             if shape[-2] == shape[-1]:
@@ -92,12 +93,13 @@ def generalized_initializer(init_fn:Callable, gain:float=1.0, avoid_self_recurre
             #TODO: change this error message
                 raise ValueError("Axis -2 with size {} doesn`t match size of axis -1 {}. avoid_self_recurrence is thought to be applied to recurrent layer with square matrix connectivity".format(shape[-2], shape[-1]))
         return w
-
+ 
     return initializer
 
-# So far harcoding the spatial_embeding function. If we want to play around with different ones, need to change it to be an argument of initializer
-def initialize_connectivity_mask(connectivity_rec_layer:bool, gridshape:Tuple[int, int], neuron_indices:Array, key:PRNGKey,
-                                  n_rec:int, sigma: float, sparsity:float, dtype:Dtype =jnp.float32):
+
+ 
+def initialize_connectivity_mask(connectivity_rec_layer: str, gridshape: Tuple[int, int], neuron_indices: Array, key: PRNGKey,
+                                  n_rec: int, sigma: float, sparsity: float, dtype: Dtype = jnp.float32):
     """
     Creates a new initializer function for initializing connectivity mask.
 
@@ -108,10 +110,12 @@ def initialize_connectivity_mask(connectivity_rec_layer:bool, gridshape:Tuple[in
 
     Parameters
     ----------
-    local_connectivity : bool
-        Boolean value indicating if layer has local connectivity pattern or not
+    connectivity_rec_layer : str
+        String indicating the connectivity pattern of the recurrent layer.
+        Must be one of: 'local' (gaussian distance-based), 'sparse' (random bernoulli),
+        'full' (all-to-all), or 'nearest_neighbors' (grid-based neighbors).
     gridshape: Tuple[w, h], 
-        Tuple containing pair of int which indicate gridshape --> w (width, or number of columns) and h (height, number of rows)
+            Tuple containing pair of int which indicate gridshape --> w (width, or number of columns) and h (height, number of rows)
     neuron_indices: Array (n_neurons, 2)
         Array with 2-D coding of neurons position in the grid. Each row represent a cell, the columns indicate the row and column, respectively, of the cell in the grid
     key: PRNGKey
@@ -122,7 +126,7 @@ def initialize_connectivity_mask(connectivity_rec_layer:bool, gridshape:Tuple[in
         Width of gaussian controlling propability of connection given distance
     dtype: Dtype, default is float32
         Dtype of mask
-
+ 
      
     
     Returns
@@ -132,7 +136,7 @@ def initialize_connectivity_mask(connectivity_rec_layer:bool, gridshape:Tuple[in
 
     """
     def initializer(key=key, shape=(n_rec, n_rec), dtype=dtype):
-
+ 
         # if local_connectivity True, build mask according to spatial embedding        
         if connectivity_rec_layer=="local":
             
@@ -145,14 +149,14 @@ def initialize_connectivity_mask(connectivity_rec_layer:bool, gridshape:Tuple[in
             row_indices = neuron_indices[:, 0]
             col_indices = neuron_indices[:, 1]
             oned_indices = row_indices * w + col_indices
-
+ 
             # get selected cells in grid
             selected_cells = grid[oned_indices, :]
-
+ 
             # Get x and y positions
             x = selected_cells[:, 0]
             y = selected_cells[:, 1]
-
+ 
             # for recurrent connection, all cells can be both pre and post depending on the connection, so therefore same locations for pre and post
             return spatial_embedings.twodMatrix(Pre_x=x, Pre_y=y, Post_x=x, Post_y=y, sigma=sigma, key=key)
                                         
@@ -163,17 +167,23 @@ def initialize_connectivity_mask(connectivity_rec_layer:bool, gridshape:Tuple[in
         # If connectivity_rec_layer is Full, mask is just ones, so that it does`t change the weights  
         elif connectivity_rec_layer=="full":
             return  nn.initializers.ones(key=key, shape=shape, dtype=dtype)
-
+ 
+        elif connectivity_rec_layer == "nearest_neighbors":
+            h, w = gridshape  # unpack gridshape: h is height (n_rows), w is width (n_cols)
+            # neuron_indices already holds (row, col) positions from cell_to_twod_grid;
+            # key is accepted for signature consistency but not used here.
+            return spatial_embedings.nearest_neighbors_mask(neuron_indices, w=w, h=h, dtype=dtype)
+ 
         else:
-            raise NotImplementedError("The requested connectivity pattern'{}' hasn't being implemented. Please provide one of the valid learning rules: 'e_prop_hardcoded', 'e_prop_autodiff', 'diffusion' or 'BPTT'".format(connectivity_rec_layer))
-
+            raise NotImplementedError("The requested connectivity pattern '{}' hasn't been implemented. Please provide one of the valid options: 'local', 'sparse', 'full', or 'nearest_neighbors'.".format(connectivity_rec_layer))
+ 
     return initializer
-
-
+ 
+ 
 def initialize_sparsity_mask(sparse_connectivity:bool, shape:Tuple[int, ...], key:PRNGKey, sparsity:float, dtype:Dtype =jnp.float32):
     """
     Creates a new initializer function for initializing output sparsity mask.
-
+ 
     If sparsity is required, generates mask array to guarantee this requirement. In this sparsity model, either a pre-synaptic neuron has connection to all post-synaptic neurons or 
     it doesn't have any connections to any postsynaptic neuron. Mask consists of 0s and 1s, with 0 indicating no connection between the respectively pre and post synaptic neurons, and 1 a possible connection.
     Otherwise, returns array of ones (which is a sort of identity mask).
@@ -188,20 +198,20 @@ def initialize_sparsity_mask(sparse_connectivity:bool, shape:Tuple[int, ...], ke
         PRNGkey for random number generator
     sparsity: float
         Float between 0. and 1. Indicates the desire percentage of exiting connections in the layer
-
+ 
     dtype: Dtype, default is float32
         Dtype of mask
-
+ 
      
     
     Returns
     -------
     callable
         A new initializer function that takes the arguments (key, shape, dtype) and returns a mask array as described.
-
+ 
     """
     def initializer(key=key, shape=shape, dtype=dtype):
-
+ 
         # if local_connectivity True, build mask according to spatial embedding        
         if sparse_connectivity:
             
@@ -211,11 +221,11 @@ def initialize_sparsity_mask(sparse_connectivity:bool, shape:Tuple[int, ...], ke
             # Calculate the total number of elements and the number of 1s needed
             total_elements = shape[0] * shape[1] # it assumes that shape
             num_ones = int(total_elements * sparsity)  # ~ sparsity % of elements should be 1s
-
+ 
             # Randomly select indices for the 1s (no replacement, so no position is chosen twice)
             flat_indices = random.choice(key, total_elements, shape=(num_ones,), replace=False)
             
-
+ 
             # Convert flat indices to row, col indices
             row_indices = flat_indices // shape[1]
             col_indices = flat_indices % shape[1]            
@@ -229,30 +239,30 @@ def initialize_sparsity_mask(sparse_connectivity:bool, shape:Tuple[int, ...], ke
         else:
             
             return  nn.initializers.ones(key=key, shape=shape, dtype=dtype)
-
+ 
     return initializer
-
-
-
+ 
+ 
+ 
 def initialize_neurons_position(gridshape:Tuple[int, int], key: PRNGKey, n_rec: int, dtype:Dtype =jnp.float32):
     """
     Creates a new initializer function for initializing positions of neuron in a 2D grid.
-
+ 
     Neurons are randomly assigned to positions in a 2D grid, without repetition. 
-
+ 
     Parameters
     ----------
     gridshape: Tuple[w, h], 
         Tuple containing pair of int which indicate gridshape --> w (width, or number of columns) and h (height, number of rows)
-
+ 
     key: PRNGKey
         PRNGkey for random number generator
     n_rec: int
         Number of recurrent neurons in the layer
-
+ 
     dtype: Dtype, default is float32
         Ignored
-
+ 
      
     
     Returns
@@ -260,7 +270,7 @@ def initialize_neurons_position(gridshape:Tuple[int, int], key: PRNGKey, n_rec: 
     callable
         A new initializer function that takes the arguments (key, shape, dtype) and returns an array with 2D coding of neurons 
         position in the given grid. Each row represent a cell, the columns indicate the row and column, respectively, of the cell in the grid .
-
+ 
     """  
     
     def initializer(key=key, shape=(n_rec, n_rec), dtype=jnp.float32):
@@ -269,19 +279,19 @@ def initialize_neurons_position(gridshape:Tuple[int, int], key: PRNGKey, n_rec: 
         return cells_indices
     
     return initializer
-
-
-
-
-
+ 
+ 
+ 
+ 
+ 
 def feedback_weights_initializer(init_fn: Callable,key:PRNGKey, shape:Tuple[int, ...], weights_out: Array, feedback: str, gain:float=1.0, sparsity:float =0.1) -> Callable:
     """
     Creates an initializer function for feedback weights based on the specified feedback type.
-
+ 
     This function generates an initializer that either returns the given output weights directly
     (in the case of symmetric feedback) or initializes new weights using the provided initializer 
     function and scales them by a specified gain factor.
-
+ 
     Parameters
     ----------
     init_fn : callable
@@ -301,21 +311,21 @@ def feedback_weights_initializer(init_fn: Callable,key:PRNGKey, shape:Tuple[int,
     gain : float, optional
         A scaling factor to apply to the initialized weights when the feedback type is not
         'Symmetric'. Default is 1.0.
-
+ 
     Returns
     -------
     callable
         An initializer function that takes optional arguments (key, shape, dtype) and returns
         an array of weights based on the specified feedback type.
-
+ 
     Raises
     ------
     ValueError
         If requested feedback method is not .
     """
-
+ 
     def initializer(key=key, shape=shape, dtype=jnp.float32):
-
+ 
         if feedback == 'Symmetric':
             return weights_out
         elif feedback== 'Random':
@@ -330,7 +340,7 @@ def feedback_weights_initializer(init_fn: Callable,key:PRNGKey, shape:Tuple[int,
             
             raise NotImplementedError("The requested feedback mode `{}` has not been implemented yet".format(feedback))
     return initializer
-
+ 
 def k_initializer(k, shape) -> Callable:
     """
     Creates an initializer function for neuromodulators diffusion kernels.
@@ -342,14 +352,14 @@ def k_initializer(k, shape) -> Callable:
     shape : tuple of int (n_modulators, 1, kernel_height, kernel_width)
         The shape of the kernels to be initialized. The output channel correspond to number of neuromodulators, while input channel is 1,
         since it is assumed that each neuromodulator diffuses independently
-
+ 
     Returns
     -------
     callable
         An initializer function that takes optional arguments (key, shape, dtype), and returns diffusion kernel with shape (n_neuromodulators, 1, kernel_height, kernel_width)     
         an array of weights based on the specified feedback type.
-
-
+ 
+ 
     """    
     def initializer(key=random.key(0), shape=shape, dtype=jnp.float32):
         
