@@ -49,7 +49,7 @@ python main.py \
     +experiment=${EXPERIMENT} \
     net_params.seed=${SEED} \
     task.seed=${SEED} \
-    save_paths.experiment_name="${EXPERIMENT}" \
+    save_paths.experiment_name="${TASK}_${EXPERIMENT}" \
     save_paths.condition="seed_${SEED}"
  
 conda deactivate

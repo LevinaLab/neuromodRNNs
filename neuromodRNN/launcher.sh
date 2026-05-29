@@ -40,7 +40,7 @@ if [[ ! -f "$SEEDS_FILE" ]]; then
     exit 1
 fi
  
-VALID_TASKS=("pattern_generation" "cue_accumulation" "delayed_match" "long_LS_delayed_match" "long_LS_cue_accumulation")
+VALID_TASKS=("pattern_generation" "cue_accumulation" "delayed_match" "long_LS_delayed_match" "long_LS_cue_accumulation" "hard_delayed_match")
 if [[ ! " ${VALID_TASKS[*]} " =~ " ${TASK} " ]]; then
     echo "ERROR: Unknown task '$TASK'."
     echo "Valid options: ${VALID_TASKS[*]}"

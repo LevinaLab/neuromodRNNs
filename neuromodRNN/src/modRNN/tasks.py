@@ -12,7 +12,7 @@ from typing import (
 
 # remove decision_delay
 def delayed_match_task(n_batches:int,batch_size:int,n_population:int=10, f_background:float = 10., f_input:float = 40., p:float=0.5, seed:Union[None,int]=None, 
-                       fixation_time:int=50, cue_time:int=150, cue_delay_time:int=350, decision_delay=50, LS_avail:int=100  ):
+                       fixation_time:int=50, cue_time:int=150, cue_delay_time:int=700, decision_delay=0, LS_avail:int=100  ):
     """
     Generates batches of data for a delayed match-to-sample task.
     
@@ -61,7 +61,7 @@ def delayed_match_task(n_batches:int,batch_size:int,n_population:int=10, f_backg
 
     
   
-    trial_dur = fixation_time + 2*cue_time + cue_delay_time  + LS_avail 
+    trial_dur = fixation_time + 2*cue_time + cue_delay_time  + LS_avail + decision_delay
     f_background = f_background / 1000 # assumes that firing rate was given in Hz
     f_input = f_input / 1000 # assumes that firing rate was given in Hz
     
