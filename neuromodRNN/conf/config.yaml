@@ -8,7 +8,7 @@ defaults:
 
 hydra:
   run:
-    dir: outputs/${task.task_name}/${save_paths.experiment_name}/${save_paths.condition}
+    dir: outputs/${hydra:runtime.choices.task}/${save_paths.experiment_name}/${save_paths.condition}
     
   job:
       config:
