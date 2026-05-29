@@ -9,8 +9,8 @@ Usage:
     
     python generate_grid.py \
         --output combinations/combinations_delayed_match.txt \
-        --lrs 5e-3 1e-2 5e-2 1e-1 \
-        --cregs 0.0 1e-5 1e-4 5e-3 1e-2 \
+        --lrs 5e-4 5e-3 1e-2 \
+        --cregs 1e-4 5e-3 1e-2 1e-1 \
         --seeds 32132 43244 41235 9934 23431
 
 """

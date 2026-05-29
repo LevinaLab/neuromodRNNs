@@ -54,7 +54,7 @@ if [[ ! -f "$COMBINATIONS_FILE" ]]; then
     exit 1
 fi
  
-VALID_TASKS=("pattern_generation" "cue_accumulation" "delayed_match")
+VALID_TASKS=("pattern_generation" "cue_accumulation" "delayed_match" "hard_delayed_match")
 if [[ ! " ${VALID_TASKS[*]} " =~ " ${TASK} " ]]; then
     echo "ERROR: unknown task '$TASK'."
     echo "Valid options: ${VALID_TASKS[*]}"
