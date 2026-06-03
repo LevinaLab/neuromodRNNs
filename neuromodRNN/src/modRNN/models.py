@@ -337,7 +337,7 @@ class ReadOut(nn.recurrent.RNNCellBase):
     # net_params
     b_out: Tuple = 0 # Bias for the output neurons. Not implemented yet --> dont change it
     tau_out: float =1 # Time constant for the output layer (ms).
-    feedback: str = "Symmetric" # Type of feedback ('Symmetric' or 'Random').
+    feedback: str = "Symmetric" # Type of feedback ('Symmetric' or 'Random', 'Random_sparse')).
     sparsity: float = 0.1 # between 0 and 1, sparsity of readout connections (only used if sparse_connectivity is True)
 
     # Initializers
