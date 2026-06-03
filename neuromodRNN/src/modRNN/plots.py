@@ -242,7 +242,7 @@ def plot_LSNN_weights(state, layer_names:List, save_path):
     axs[2].set_xticks([0.25, 0.75], ["left", "rigth"])
     # Adjust layout to prevent overlap
     fig.tight_layout()
-    fig.savefig(save_path, format="svg")
+    fig.savefig(save_path)
     plt.close()
     
 def plot_weights_spatially_indexed(state, gridshape, save_path):
@@ -316,7 +316,7 @@ def plot_weights_spatially_indexed(state, gridshape, save_path):
         axs[1,1].set_ylabel('y position grid')
     
     fig.tight_layout()
-    fig.savefig(save_path, format="svg")
+    fig.savefig(save_path)
     plt.close()
 
 def plot_gradients(grads, spatial_params, epoch, save_path):
@@ -388,5 +388,5 @@ def plot_gradients(grads, spatial_params, epoch, save_path):
     fig.suptitle(f"Epoch: {epoch}", fontsize=16)
     # Adjust layout to prevent overlap
     fig.tight_layout()
-    fig.savefig(save_path, format="svg")
+    fig.savefig(save_path)
     plt.close()
