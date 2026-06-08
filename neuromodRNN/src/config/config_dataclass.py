@@ -56,7 +56,7 @@ class NetworkParams:
 @dataclass
 class TrainParams:
     """Optimizer, batching, and training-loop control."""
-    lr: float = 0.0025
+    lr: float = 0.005
     train_batch_size: int = 64
     # Sub-batch (mini-batch) size: number of trials processed per step;
     # gradient accumulation is used if train_batch_size > train_mini_batch_size.
@@ -66,8 +66,8 @@ class TrainParams:
     iterations: int = 2000
     stop_criteria: float = 1.0
     f_target: float = 10.
-    c_reg: float = 1.0
-    learning_rule: str = "e_prop_hardcoded"  # "BPTT" | "e_prop_hardcoded" | "e_prop_autodiff" | "diffusion"
+    c_reg: float = 1e-2
+    learning_rule: str = "diffusion"  # "BPTT" | "e_prop_hardcoded" | "e_prop_autodiff" | "diffusion"
     diffusion_mode: str = "aligned" # one of: "aligned", "shuffled_per_step", "shuffled_fixed"
     test_grads: bool = False  # debug: compare autodiff vs hardcoded grads
  
