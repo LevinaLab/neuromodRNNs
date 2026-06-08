@@ -8,14 +8,13 @@ defaults:
 # Previously: worker.sh TASK_ARGS=(...) for delayed_match.
 # ---------------------------------------------------------------------------
 
-task:
-  LS_avail: 600
-
-
 # Network architecture overrides
 net_arch:
+  connectivity_rec_layer: full
+  sparse_readout: False
+  sparse_input: False 
   n_neurons_channel: 20
- 
+
 # Network parameter overrides
 net_params:
   k: 0.75
@@ -26,4 +25,3 @@ net_params:
 train_params:
   lr: 0.005
   c_reg: 0.01
- 
