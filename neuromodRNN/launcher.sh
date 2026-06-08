@@ -40,14 +40,14 @@ if [[ ! -f "$SEEDS_FILE" ]]; then
     exit 1
 fi
  
-VALID_TASKS=("pattern_generation" "cue_accumulation" "delayed_match" "long_LS_delayed_match" "long_LS_cue_accumulation" "hard_delayed_match")
+VALID_TASKS=("pattern_generation" "cue_accumulation" "delayed_match" "long_LS_delayed_match" "long_LS_cue_accumulation" "hard_delayed_match" "fully_connected_cue_accumulation" "fully_connected_pattern_generation" "fully_connected_delayed_match")
 if [[ ! " ${VALID_TASKS[*]} " =~ " ${TASK} " ]]; then
     echo "ERROR: Unknown task '$TASK'."
     echo "Valid options: ${VALID_TASKS[*]}"
     exit 1
 fi
  
-VALID_EXPERIMENTS=("BPTT" "e_prop_hardcoded" "diffusion" "per_step_shuffle_diffusion" "fixed_shuffle_diffusion" "sparse_recurrent" "align_local_connectivity_BPTT" "align_local_connectivity_eprop" "align_local_connectivity_diffusion_aligned" "align_local_connectivity_diffusion_fixed" "align_local_connectivity_diffusion_per_step")
+VALID_EXPERIMENTS=("BPTT" "e_prop_hardcoded" "diffusion" "per_step_shuffle_diffusion" "fixed_shuffle_diffusion" "random_eprop" "sparse_recurrent" "diffusion_nn" "fixed_shuffle_diffusion_nn" "align_local_connectivity_BPTT" "align_local_connectivity_eprop" "align_local_connectivity_diffusion_aligned" "align_local_connectivity_diffusion_fixed" "align_local_connectivity_diffusion_per_step" "align_local_connectivity_random_eprop" "align_nn_connectivity_diffusion_fixed" "align_nn_connectivity_diffusion_aligned")
 if [[ ! " ${VALID_EXPERIMENTS[*]} " =~ " ${EXPERIMENT} " ]]; then
     echo "ERROR: Unknown experiment '$EXPERIMENT'."
     echo "Valid options: ${VALID_EXPERIMENTS[*]}"

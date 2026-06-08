@@ -5,7 +5,7 @@
 #
 # Submits one SLURM array job, with one array task per line of
 # <combinations_file>. Concurrency is capped at MAX_CONCURRENT (default
-# 20) — submission queues all jobs, but only the cap runs at once.
+# 25) — submission queues all jobs, but only the cap runs at once.
 #
 # Each line of <combinations_file> is three tab-separated fields:
 #     <lr>    <c_reg>    <seed>
@@ -24,7 +24,7 @@
 #
 # Examples:
 #   bash launcher_grid.sh combinations/combinations_cue.txt cue_accumulation e_prop_hardcoded
-#   bash launcher_grid.sh combinations/combinations_cue.txt cue_accumulation diffusion
+#   bash scripts/gridsearch/launcher_grid.sh scripts/gridsearch/combinations/combinations_cue_accumulation.txt cue_accumulation diffusion_nn
 #
 # Output: outputs/<task>/gridsearch/<experiment>/lr_<lr>__creg_<c_reg>/seed_<seed>/
 # =============================================================================
@@ -41,7 +41,7 @@ COMBINATIONS_FILE="${1:-}"
 TASK="${2:-}"
 EXPERIMENT="${3:-}"
  
-MAX_CONCURRENT="${MAX_CONCURRENT:-20}"
+MAX_CONCURRENT="${MAX_CONCURRENT:-25}"
  
 # --- Validate arguments ------------------------------------------------------
 if [[ -z "$COMBINATIONS_FILE" || -z "$TASK" || -z "$EXPERIMENT" ]]; then
@@ -54,7 +54,7 @@ if [[ ! -f "$COMBINATIONS_FILE" ]]; then
     exit 1
 fi
  
-VALID_TASKS=("pattern_generation" "cue_accumulation" "delayed_match" "hard_delayed_match")
+VALID_TASKS=("pattern_generation" "cue_accumulation" "delayed_match" "hard_delayed_match" "fully_connected_cue_accumulation" "fully_connected_pattern_generation" "fully_connected_delayed_match")
 if [[ ! " ${VALID_TASKS[*]} " =~ " ${TASK} " ]]; then
     echo "ERROR: unknown task '$TASK'."
     echo "Valid options: ${VALID_TASKS[*]}"
