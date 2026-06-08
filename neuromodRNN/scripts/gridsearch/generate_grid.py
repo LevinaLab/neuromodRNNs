@@ -3,14 +3,21 @@ Generate a tab-separated file listing (lr, c_reg, seed) combinations.
 Usage:
     python generate_grid.py \
         --output combinations/combinations_cue_accumulation.txt \
-        --lrs 1e-4 5e-3 1e-3 1e-2 5e-2 \
-        --cregs 0.0 1e-5 1e-4 5e-3 5e-2 \
+        --lrs 1e-4 5e-3 1e-3 \
+        --cregs 5e-2 5e-1 5e0  \
         --seeds 32132 43244 41235 9934 23431
     
     python generate_grid.py \
         --output combinations/combinations_delayed_match.txt \
-        --lrs 5e-4 5e-3 1e-2 \
-        --cregs 1e-4 5e-3 1e-2 1e-1 \
+        --lrs 1e-4 5e-3 1e-3 5e-2\
+        --cregs 5e-2 5e-1 5e0  \
+        --seeds 32132 43244 41235 9934 23431
+
+
+    python generate_grid.py \
+        --output combinations/combinations_pattern_generation.txt \
+        --lrs 5e-3 1e-2  5e-2 1e-1\
+        --cregs 5e-2 5e-1 5e0 50 \
         --seeds 32132 43244 41235 9934 23431
 
 """

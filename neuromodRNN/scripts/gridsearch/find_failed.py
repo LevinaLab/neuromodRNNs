@@ -16,11 +16,11 @@ Anything else (whole directory missing, train_info missing, pickle missing,
 zero-byte pickle) is treated as a failure and emitted.
  
 Usage:
-    python find_failed.py \\
-        --combinations combinations/combinations_cue.txt \\
-        --root outputs \\
-        --task cue_accumulation \\
-        --experiment e_prop_hardcoded \\
+    python find_failed.py \
+        --combinations combinations/combinations_cue.txt \
+        --root outputs \
+        --task cue_accumulation \
+        --experiment e_prop_hardcoded \
         --output combinations/combinations_cue_retry.txt
  
 Then resubmit the retry file via the existing launcher:
