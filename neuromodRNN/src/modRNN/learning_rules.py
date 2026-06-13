@@ -38,11 +38,13 @@ LS_AVAIL_VECTORIZED_THRESHOLD = 10
 DIFFUSION_MODE_ALIGNED = "aligned"
 DIFFUSION_MODE_SHUFFLED_PER_STEP = "shuffled_per_step"
 DIFFUSION_MODE_SHUFFLED_FIXED = "shuffled_fixed"
+DIFFUSION_MODE_SHUFFLED_PER_ITERATION = "shuffled_per_iteration"
  
 _VALID_DIFFUSION_MODES = (
     DIFFUSION_MODE_ALIGNED,
     DIFFUSION_MODE_SHUFFLED_PER_STEP,
     DIFFUSION_MODE_SHUFFLED_FIXED,
+    DIFFUSION_MODE_SHUFFLED_PER_ITERATION,   # ← new
 )
  
  
@@ -212,6 +214,11 @@ def neuromod_online(
         across batch and time. Stationary rewired-topology control.
       - DIFFUSION_MODE_SHUFFLED_PER_STEP: P drawn fresh every step,
         independently per batch element. Non-stationary control.
+      - DIFFUSION_MODE_SHUFFLED_PER_ITERATION: P drawn once from `key` at the
+        start of the function (before the scan), shared across all mini-batches
+        and all time steps within the iteration. A new P is used each training
+        iteration because `key` changes each epoch in the training loop.
+        Stationary-within-iteration, non-stationary-across-iterations control.
  
     Parameters
     ----------
@@ -238,15 +245,29 @@ def neuromod_online(
     cells_loc = spatial_params['ALIFCell_0']['cells_loc']
     cell_rows, cell_cols = cells_loc[:, 0], cells_loc[:, 1]
  
-    # Fixed-mode permutation: read the permutation from spatial_params and
-    # derive its inverse here. Avoid having to recompute inside of scan
+    # Unpack batch_init_carries early so init_error_grid is available for
+    # the per-iteration permutation block below.
+    eligibility_carries, init_error_grid = batch_init_carries
+
+    # Fixed-mode permutation (drawn once at model init, stored in spatial_params).
     if diffusion_mode == DIFFUSION_MODE_SHUFFLED_FIXED:
         fixed_perm = spatial_params['ALIFCell_0']['shuffle_permutation_fixed']
         fixed_perm_inv = learning_utils.invert_permutation(fixed_perm)
     else:
         fixed_perm = None
         fixed_perm_inv = None
- 
+
+    # Per-iteration permutation (drawn once per training iteration from `key`,
+    # shared across all mini-batches and time steps within the iteration).
+    if diffusion_mode == DIFFUSION_MODE_SHUFFLED_PER_ITERATION:
+        _, _, h_grid, w_grid = jnp.shape(init_error_grid)
+        n_cells = h_grid * w_grid
+        iter_perm = jax.random.permutation(key, n_cells)          # shape (h*w,), 1-D
+        iter_perm_inv = learning_utils.invert_permutation(iter_perm)
+    else:
+        iter_perm = None
+        iter_perm_inv = None
+
     # Firing-rate regularization error — constant across the scan.
     f_error = learning_utils.firing_rate_error(z, trial_length, f_target)
     feedback_kernel = eligibility_params['ReadOut_0']['feedback_weights']
@@ -283,6 +304,12 @@ def neuromod_online(
             permuted = learning_utils.apply_permutation(error_grid, fixed_perm)
             perm_inv = fixed_perm_inv
             next_step_key = step_key
+
+        elif diffusion_mode == DIFFUSION_MODE_SHUFFLED_PER_ITERATION:
+            permuted = learning_utils.apply_permutation(error_grid, iter_perm)
+            perm_inv = iter_perm_inv
+            next_step_key = step_key   # key is not consumed inside the scan
+
         else:  # DIFFUSION_MODE_SHUFFLED_PER_STEP
             step_use_key, next_step_key = jax.random.split(step_key)
             n_b, _, h, w = error_grid.shape
@@ -355,7 +382,6 @@ def neuromod_online(
         )
     
     # Scan over time.
-    eligibility_carries, init_error_grid = batch_init_carries
     _, updates = lax.scan(
         one_step_gradient,
         (eligibility_carries, init_error_grid, key),
@@ -711,4 +737,3 @@ def compute_grads(batch:Dict[str, Array], state,optimization_loss_fn:Callable, L
     grads = apply_structural_constraints(grads, state)
  
     return y, grads
- 

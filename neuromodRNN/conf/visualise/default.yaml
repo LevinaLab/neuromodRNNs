@@ -1,0 +1,20 @@
+# @package _global_
+# conf/visualise/default.yaml
+# Configuration for the diffusion-probe visualisation script.
+
+# Epochs at which to pause training, run the diffusion probe, and save figures.
+probe_epochs: [1, 100, 300, 500, 1000]
+
+# Which batch element (index into the mini-batch) to use for visualisation.
+batch_index: 0
+
+animation_fps: 5
+
+animate_last_steps: 10
+
+# Set to true to also save an MP4 animation (requires ffmpeg).
+animate: true
+
+# Threshold for the spatial-spread metric: a grid cell is "active" when
+# |error_grid[cell]| exceeds this value.
+spread_threshold: 1.0e-4
