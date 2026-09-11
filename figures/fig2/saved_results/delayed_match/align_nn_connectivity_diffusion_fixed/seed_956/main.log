@@ -1,0 +1,290 @@
+[2026-06-02 20:33:05,470][jax._src.xla_bridge][INFO] - Unable to initialize backend 'rocm': module 'jaxlib.xla_extension' has no attribute 'GpuAllocatorConfig'
+[2026-06-02 20:33:05,472][jax._src.xla_bridge][INFO] - Unable to initialize backend 'tpu': INTERNAL: Failed to open libtpu.so: libtpu.so: cannot open shared object file: No such file or directory
+[2026-06-02 20:33:13,034][src.modRNN.training.alignment][INFO] - Starting alignment experiment: training with diffusion, measuring alignment of ['BPTT', 'eprop', 'diffusion_aligned', 'diffusion_per_step', 'diffusion_fixed'] every 50 epochs.
+[2026-06-02 20:33:16,584][src.modRNN.training.alignment][INFO] - epoch 1  train loss=0.6932  (rule: diffusion)
+[2026-06-02 20:33:18,513][src.modRNN.training.alignment][INFO] -   align BPTT @ epoch 1: cos {'ALIFCell_0.input_weights': '0.000', 'ALIFCell_0.recurrent_weights': '0.000', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:33:19,965][src.modRNN.training.alignment][INFO] -   align eprop @ epoch 1: cos {'ALIFCell_0.input_weights': '0.369', 'ALIFCell_0.recurrent_weights': '0.292', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:33:21,552][src.modRNN.training.alignment][INFO] -   align diffusion_aligned @ epoch 1: cos {'ALIFCell_0.input_weights': '0.843', 'ALIFCell_0.recurrent_weights': '0.475', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:33:25,125][src.modRNN.training.alignment][INFO] -   align diffusion_per_step @ epoch 1: cos {'ALIFCell_0.input_weights': '0.696', 'ALIFCell_0.recurrent_weights': '0.378', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:33:26,835][src.modRNN.training.alignment][INFO] -   align diffusion_fixed @ epoch 1: cos {'ALIFCell_0.input_weights': '0.811', 'ALIFCell_0.recurrent_weights': '0.289', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:33:43,951][src.modRNN.training.alignment][INFO] - epoch 25  train loss=0.6932  (rule: diffusion)
+[2026-06-02 20:34:01,834][src.modRNN.training.alignment][INFO] - epoch 50  train loss=0.6932  (rule: diffusion)
+[2026-06-02 20:34:03,293][src.modRNN.training.alignment][INFO] -   align BPTT @ epoch 51: cos {'ALIFCell_0.input_weights': '0.000', 'ALIFCell_0.recurrent_weights': '0.000', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:34:03,840][src.modRNN.training.alignment][INFO] -   align eprop @ epoch 51: cos {'ALIFCell_0.input_weights': '0.436', 'ALIFCell_0.recurrent_weights': '0.742', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:34:04,519][src.modRNN.training.alignment][INFO] -   align diffusion_aligned @ epoch 51: cos {'ALIFCell_0.input_weights': '0.878', 'ALIFCell_0.recurrent_weights': '0.881', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:34:05,681][src.modRNN.training.alignment][INFO] -   align diffusion_per_step @ epoch 51: cos {'ALIFCell_0.input_weights': '0.828', 'ALIFCell_0.recurrent_weights': '0.887', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:34:06,353][src.modRNN.training.alignment][INFO] -   align diffusion_fixed @ epoch 51: cos {'ALIFCell_0.input_weights': '0.846', 'ALIFCell_0.recurrent_weights': '0.883', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:34:23,652][src.modRNN.training.alignment][INFO] - epoch 75  train loss=0.6931  (rule: diffusion)
+[2026-06-02 20:34:41,623][src.modRNN.training.alignment][INFO] - epoch 100  train loss=0.6914  (rule: diffusion)
+[2026-06-02 20:34:43,085][src.modRNN.training.alignment][INFO] -   align BPTT @ epoch 101: cos {'ALIFCell_0.input_weights': '0.000', 'ALIFCell_0.recurrent_weights': '0.000', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:34:43,635][src.modRNN.training.alignment][INFO] -   align eprop @ epoch 101: cos {'ALIFCell_0.input_weights': '1.086', 'ALIFCell_0.recurrent_weights': '0.938', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:34:44,316][src.modRNN.training.alignment][INFO] -   align diffusion_aligned @ epoch 101: cos {'ALIFCell_0.input_weights': '1.113', 'ALIFCell_0.recurrent_weights': '0.955', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:34:45,477][src.modRNN.training.alignment][INFO] -   align diffusion_per_step @ epoch 101: cos {'ALIFCell_0.input_weights': '1.132', 'ALIFCell_0.recurrent_weights': '0.932', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:34:46,146][src.modRNN.training.alignment][INFO] -   align diffusion_fixed @ epoch 101: cos {'ALIFCell_0.input_weights': '1.165', 'ALIFCell_0.recurrent_weights': '1.017', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:35:03,406][src.modRNN.training.alignment][INFO] - epoch 125  train loss=0.6477  (rule: diffusion)
+[2026-06-02 20:35:21,564][src.modRNN.training.alignment][INFO] - epoch 150  train loss=0.6270  (rule: diffusion)
+[2026-06-02 20:35:23,039][src.modRNN.training.alignment][INFO] -   align BPTT @ epoch 151: cos {'ALIFCell_0.input_weights': '0.000', 'ALIFCell_0.recurrent_weights': '0.000', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:35:23,595][src.modRNN.training.alignment][INFO] -   align eprop @ epoch 151: cos {'ALIFCell_0.input_weights': '0.500', 'ALIFCell_0.recurrent_weights': '0.372', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:35:24,285][src.modRNN.training.alignment][INFO] -   align diffusion_aligned @ epoch 151: cos {'ALIFCell_0.input_weights': '0.663', 'ALIFCell_0.recurrent_weights': '0.374', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:35:25,459][src.modRNN.training.alignment][INFO] -   align diffusion_per_step @ epoch 151: cos {'ALIFCell_0.input_weights': '0.614', 'ALIFCell_0.recurrent_weights': '0.297', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:35:26,137][src.modRNN.training.alignment][INFO] -   align diffusion_fixed @ epoch 151: cos {'ALIFCell_0.input_weights': '0.477', 'ALIFCell_0.recurrent_weights': '0.308', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:35:43,527][src.modRNN.training.alignment][INFO] - epoch 175  train loss=0.5558  (rule: diffusion)
+[2026-06-02 20:36:01,638][src.modRNN.training.alignment][INFO] - epoch 200  train loss=0.4925  (rule: diffusion)
+[2026-06-02 20:36:03,113][src.modRNN.training.alignment][INFO] -   align BPTT @ epoch 201: cos {'ALIFCell_0.input_weights': '0.000', 'ALIFCell_0.recurrent_weights': '0.000', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:36:03,666][src.modRNN.training.alignment][INFO] -   align eprop @ epoch 201: cos {'ALIFCell_0.input_weights': '0.450', 'ALIFCell_0.recurrent_weights': '0.544', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:36:04,353][src.modRNN.training.alignment][INFO] -   align diffusion_aligned @ epoch 201: cos {'ALIFCell_0.input_weights': '1.049', 'ALIFCell_0.recurrent_weights': '1.106', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:36:05,523][src.modRNN.training.alignment][INFO] -   align diffusion_per_step @ epoch 201: cos {'ALIFCell_0.input_weights': '1.043', 'ALIFCell_0.recurrent_weights': '1.016', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:36:06,198][src.modRNN.training.alignment][INFO] -   align diffusion_fixed @ epoch 201: cos {'ALIFCell_0.input_weights': '0.535', 'ALIFCell_0.recurrent_weights': '0.748', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:36:23,658][src.modRNN.training.alignment][INFO] - epoch 225  train loss=0.5315  (rule: diffusion)
+[2026-06-02 20:36:41,805][src.modRNN.training.alignment][INFO] - epoch 250  train loss=0.4988  (rule: diffusion)
+[2026-06-02 20:36:43,277][src.modRNN.training.alignment][INFO] -   align BPTT @ epoch 251: cos {'ALIFCell_0.input_weights': '0.000', 'ALIFCell_0.recurrent_weights': '0.000', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:36:43,830][src.modRNN.training.alignment][INFO] -   align eprop @ epoch 251: cos {'ALIFCell_0.input_weights': '0.453', 'ALIFCell_0.recurrent_weights': '0.597', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:36:44,518][src.modRNN.training.alignment][INFO] -   align diffusion_aligned @ epoch 251: cos {'ALIFCell_0.input_weights': '1.010', 'ALIFCell_0.recurrent_weights': '0.998', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:36:45,687][src.modRNN.training.alignment][INFO] -   align diffusion_per_step @ epoch 251: cos {'ALIFCell_0.input_weights': '1.063', 'ALIFCell_0.recurrent_weights': '0.904', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:36:46,364][src.modRNN.training.alignment][INFO] -   align diffusion_fixed @ epoch 251: cos {'ALIFCell_0.input_weights': '0.547', 'ALIFCell_0.recurrent_weights': '0.715', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:37:03,755][src.modRNN.training.alignment][INFO] - epoch 275  train loss=0.4615  (rule: diffusion)
+[2026-06-02 20:37:21,898][src.modRNN.training.alignment][INFO] - epoch 300  train loss=0.4484  (rule: diffusion)
+[2026-06-02 20:37:23,371][src.modRNN.training.alignment][INFO] -   align BPTT @ epoch 301: cos {'ALIFCell_0.input_weights': '0.000', 'ALIFCell_0.recurrent_weights': '0.000', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:37:23,927][src.modRNN.training.alignment][INFO] -   align eprop @ epoch 301: cos {'ALIFCell_0.input_weights': '0.405', 'ALIFCell_0.recurrent_weights': '0.775', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:37:24,616][src.modRNN.training.alignment][INFO] -   align diffusion_aligned @ epoch 301: cos {'ALIFCell_0.input_weights': '0.813', 'ALIFCell_0.recurrent_weights': '1.731', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:37:25,786][src.modRNN.training.alignment][INFO] -   align diffusion_per_step @ epoch 301: cos {'ALIFCell_0.input_weights': '0.800', 'ALIFCell_0.recurrent_weights': '1.418', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:37:26,464][src.modRNN.training.alignment][INFO] -   align diffusion_fixed @ epoch 301: cos {'ALIFCell_0.input_weights': '0.616', 'ALIFCell_0.recurrent_weights': '0.842', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:37:43,852][src.modRNN.training.alignment][INFO] - epoch 325  train loss=0.4141  (rule: diffusion)
+[2026-06-02 20:38:01,971][src.modRNN.training.alignment][INFO] - epoch 350  train loss=0.4856  (rule: diffusion)
+[2026-06-02 20:38:03,446][src.modRNN.training.alignment][INFO] -   align BPTT @ epoch 351: cos {'ALIFCell_0.input_weights': '0.000', 'ALIFCell_0.recurrent_weights': '0.000', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:38:04,003][src.modRNN.training.alignment][INFO] -   align eprop @ epoch 351: cos {'ALIFCell_0.input_weights': '0.361', 'ALIFCell_0.recurrent_weights': '0.932', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:38:04,690][src.modRNN.training.alignment][INFO] -   align diffusion_aligned @ epoch 351: cos {'ALIFCell_0.input_weights': '0.804', 'ALIFCell_0.recurrent_weights': '1.941', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:38:05,860][src.modRNN.training.alignment][INFO] -   align diffusion_per_step @ epoch 351: cos {'ALIFCell_0.input_weights': '0.846', 'ALIFCell_0.recurrent_weights': '1.726', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:38:06,534][src.modRNN.training.alignment][INFO] -   align diffusion_fixed @ epoch 351: cos {'ALIFCell_0.input_weights': '0.706', 'ALIFCell_0.recurrent_weights': '1.075', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:38:23,954][src.modRNN.training.alignment][INFO] - epoch 375  train loss=0.4290  (rule: diffusion)
+[2026-06-02 20:38:42,123][src.modRNN.training.alignment][INFO] - epoch 400  train loss=0.4551  (rule: diffusion)
+[2026-06-02 20:38:43,606][src.modRNN.training.alignment][INFO] -   align BPTT @ epoch 401: cos {'ALIFCell_0.input_weights': '0.000', 'ALIFCell_0.recurrent_weights': '0.000', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:38:44,163][src.modRNN.training.alignment][INFO] -   align eprop @ epoch 401: cos {'ALIFCell_0.input_weights': '0.523', 'ALIFCell_0.recurrent_weights': '0.626', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:38:44,856][src.modRNN.training.alignment][INFO] -   align diffusion_aligned @ epoch 401: cos {'ALIFCell_0.input_weights': '0.870', 'ALIFCell_0.recurrent_weights': '0.743', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:38:46,035][src.modRNN.training.alignment][INFO] -   align diffusion_per_step @ epoch 401: cos {'ALIFCell_0.input_weights': '0.894', 'ALIFCell_0.recurrent_weights': '0.800', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:38:46,717][src.modRNN.training.alignment][INFO] -   align diffusion_fixed @ epoch 401: cos {'ALIFCell_0.input_weights': '0.710', 'ALIFCell_0.recurrent_weights': '0.741', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:39:04,305][src.modRNN.training.alignment][INFO] - epoch 425  train loss=0.4842  (rule: diffusion)
+[2026-06-02 20:39:22,603][src.modRNN.training.alignment][INFO] - epoch 450  train loss=0.4320  (rule: diffusion)
+[2026-06-02 20:39:24,090][src.modRNN.training.alignment][INFO] -   align BPTT @ epoch 451: cos {'ALIFCell_0.input_weights': '0.000', 'ALIFCell_0.recurrent_weights': '0.000', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:39:24,647][src.modRNN.training.alignment][INFO] -   align eprop @ epoch 451: cos {'ALIFCell_0.input_weights': '0.694', 'ALIFCell_0.recurrent_weights': '0.641', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:39:25,339][src.modRNN.training.alignment][INFO] -   align diffusion_aligned @ epoch 451: cos {'ALIFCell_0.input_weights': '0.991', 'ALIFCell_0.recurrent_weights': '1.128', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:39:26,518][src.modRNN.training.alignment][INFO] -   align diffusion_per_step @ epoch 451: cos {'ALIFCell_0.input_weights': '1.076', 'ALIFCell_0.recurrent_weights': '1.184', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:39:27,198][src.modRNN.training.alignment][INFO] -   align diffusion_fixed @ epoch 451: cos {'ALIFCell_0.input_weights': '1.049', 'ALIFCell_0.recurrent_weights': '0.951', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:39:44,721][src.modRNN.training.alignment][INFO] - epoch 475  train loss=0.4346  (rule: diffusion)
+[2026-06-02 20:40:02,945][src.modRNN.training.alignment][INFO] - epoch 500  train loss=0.4258  (rule: diffusion)
+[2026-06-02 20:40:04,433][src.modRNN.training.alignment][INFO] -   align BPTT @ epoch 501: cos {'ALIFCell_0.input_weights': '0.000', 'ALIFCell_0.recurrent_weights': '0.000', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:40:04,992][src.modRNN.training.alignment][INFO] -   align eprop @ epoch 501: cos {'ALIFCell_0.input_weights': '0.538', 'ALIFCell_0.recurrent_weights': '0.431', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:40:05,687][src.modRNN.training.alignment][INFO] -   align diffusion_aligned @ epoch 501: cos {'ALIFCell_0.input_weights': '1.409', 'ALIFCell_0.recurrent_weights': '1.353', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:40:06,865][src.modRNN.training.alignment][INFO] -   align diffusion_per_step @ epoch 501: cos {'ALIFCell_0.input_weights': '1.105', 'ALIFCell_0.recurrent_weights': '1.495', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:40:07,548][src.modRNN.training.alignment][INFO] -   align diffusion_fixed @ epoch 501: cos {'ALIFCell_0.input_weights': '1.175', 'ALIFCell_0.recurrent_weights': '1.542', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:40:25,106][src.modRNN.training.alignment][INFO] - epoch 525  train loss=0.4103  (rule: diffusion)
+[2026-06-02 20:40:43,408][src.modRNN.training.alignment][INFO] - epoch 550  train loss=0.3695  (rule: diffusion)
+[2026-06-02 20:40:44,891][src.modRNN.training.alignment][INFO] -   align BPTT @ epoch 551: cos {'ALIFCell_0.input_weights': '0.000', 'ALIFCell_0.recurrent_weights': '0.000', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:40:45,448][src.modRNN.training.alignment][INFO] -   align eprop @ epoch 551: cos {'ALIFCell_0.input_weights': '0.788', 'ALIFCell_0.recurrent_weights': '0.879', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:40:46,141][src.modRNN.training.alignment][INFO] -   align diffusion_aligned @ epoch 551: cos {'ALIFCell_0.input_weights': '0.950', 'ALIFCell_0.recurrent_weights': '1.456', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:40:47,321][src.modRNN.training.alignment][INFO] -   align diffusion_per_step @ epoch 551: cos {'ALIFCell_0.input_weights': '1.075', 'ALIFCell_0.recurrent_weights': '1.162', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:40:48,002][src.modRNN.training.alignment][INFO] -   align diffusion_fixed @ epoch 551: cos {'ALIFCell_0.input_weights': '0.932', 'ALIFCell_0.recurrent_weights': '1.218', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:41:05,531][src.modRNN.training.alignment][INFO] - epoch 575  train loss=0.2850  (rule: diffusion)
+[2026-06-02 20:41:23,832][src.modRNN.training.alignment][INFO] - epoch 600  train loss=0.2230  (rule: diffusion)
+[2026-06-02 20:41:25,318][src.modRNN.training.alignment][INFO] -   align BPTT @ epoch 601: cos {'ALIFCell_0.input_weights': '0.000', 'ALIFCell_0.recurrent_weights': '0.000', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:41:25,877][src.modRNN.training.alignment][INFO] -   align eprop @ epoch 601: cos {'ALIFCell_0.input_weights': '0.319', 'ALIFCell_0.recurrent_weights': '0.521', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:41:26,572][src.modRNN.training.alignment][INFO] -   align diffusion_aligned @ epoch 601: cos {'ALIFCell_0.input_weights': '1.356', 'ALIFCell_0.recurrent_weights': '1.382', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:41:27,750][src.modRNN.training.alignment][INFO] -   align diffusion_per_step @ epoch 601: cos {'ALIFCell_0.input_weights': '1.325', 'ALIFCell_0.recurrent_weights': '1.468', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:41:28,433][src.modRNN.training.alignment][INFO] -   align diffusion_fixed @ epoch 601: cos {'ALIFCell_0.input_weights': '0.687', 'ALIFCell_0.recurrent_weights': '1.182', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:41:45,943][src.modRNN.training.alignment][INFO] - epoch 625  train loss=0.2310  (rule: diffusion)
+[2026-06-02 20:42:04,202][src.modRNN.training.alignment][INFO] - epoch 650  train loss=0.1504  (rule: diffusion)
+[2026-06-02 20:42:05,686][src.modRNN.training.alignment][INFO] -   align BPTT @ epoch 651: cos {'ALIFCell_0.input_weights': '0.000', 'ALIFCell_0.recurrent_weights': '0.000', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:42:06,245][src.modRNN.training.alignment][INFO] -   align eprop @ epoch 651: cos {'ALIFCell_0.input_weights': '0.516', 'ALIFCell_0.recurrent_weights': '0.729', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:42:06,937][src.modRNN.training.alignment][INFO] -   align diffusion_aligned @ epoch 651: cos {'ALIFCell_0.input_weights': '0.985', 'ALIFCell_0.recurrent_weights': '1.237', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:42:08,116][src.modRNN.training.alignment][INFO] -   align diffusion_per_step @ epoch 651: cos {'ALIFCell_0.input_weights': '0.997', 'ALIFCell_0.recurrent_weights': '1.035', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:42:08,796][src.modRNN.training.alignment][INFO] -   align diffusion_fixed @ epoch 651: cos {'ALIFCell_0.input_weights': '0.871', 'ALIFCell_0.recurrent_weights': '0.818', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:42:26,355][src.modRNN.training.alignment][INFO] - epoch 675  train loss=0.1625  (rule: diffusion)
+[2026-06-02 20:42:44,638][src.modRNN.training.alignment][INFO] - epoch 700  train loss=0.5240  (rule: diffusion)
+[2026-06-02 20:42:46,124][src.modRNN.training.alignment][INFO] -   align BPTT @ epoch 701: cos {'ALIFCell_0.input_weights': '0.000', 'ALIFCell_0.recurrent_weights': '0.000', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:42:46,682][src.modRNN.training.alignment][INFO] -   align eprop @ epoch 701: cos {'ALIFCell_0.input_weights': '0.664', 'ALIFCell_0.recurrent_weights': '1.179', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:42:47,377][src.modRNN.training.alignment][INFO] -   align diffusion_aligned @ epoch 701: cos {'ALIFCell_0.input_weights': '1.111', 'ALIFCell_0.recurrent_weights': '1.064', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:42:48,557][src.modRNN.training.alignment][INFO] -   align diffusion_per_step @ epoch 701: cos {'ALIFCell_0.input_weights': '1.041', 'ALIFCell_0.recurrent_weights': '1.056', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:42:49,237][src.modRNN.training.alignment][INFO] -   align diffusion_fixed @ epoch 701: cos {'ALIFCell_0.input_weights': '0.994', 'ALIFCell_0.recurrent_weights': '1.033', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:43:06,772][src.modRNN.training.alignment][INFO] - epoch 725  train loss=0.2371  (rule: diffusion)
+[2026-06-02 20:43:25,060][src.modRNN.training.alignment][INFO] - epoch 750  train loss=0.1378  (rule: diffusion)
+[2026-06-02 20:43:26,545][src.modRNN.training.alignment][INFO] -   align BPTT @ epoch 751: cos {'ALIFCell_0.input_weights': '0.000', 'ALIFCell_0.recurrent_weights': '0.000', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:43:27,102][src.modRNN.training.alignment][INFO] -   align eprop @ epoch 751: cos {'ALIFCell_0.input_weights': '0.940', 'ALIFCell_0.recurrent_weights': '0.419', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:43:27,797][src.modRNN.training.alignment][INFO] -   align diffusion_aligned @ epoch 751: cos {'ALIFCell_0.input_weights': '1.146', 'ALIFCell_0.recurrent_weights': '0.446', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:43:28,977][src.modRNN.training.alignment][INFO] -   align diffusion_per_step @ epoch 751: cos {'ALIFCell_0.input_weights': '1.099', 'ALIFCell_0.recurrent_weights': '0.425', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:43:29,660][src.modRNN.training.alignment][INFO] -   align diffusion_fixed @ epoch 751: cos {'ALIFCell_0.input_weights': '1.013', 'ALIFCell_0.recurrent_weights': '0.421', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:43:47,172][src.modRNN.training.alignment][INFO] - epoch 775  train loss=0.1119  (rule: diffusion)
+[2026-06-02 20:44:05,430][src.modRNN.training.alignment][INFO] - epoch 800  train loss=0.1190  (rule: diffusion)
+[2026-06-02 20:44:06,915][src.modRNN.training.alignment][INFO] -   align BPTT @ epoch 801: cos {'ALIFCell_0.input_weights': '0.000', 'ALIFCell_0.recurrent_weights': '0.000', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:44:07,472][src.modRNN.training.alignment][INFO] -   align eprop @ epoch 801: cos {'ALIFCell_0.input_weights': '0.536', 'ALIFCell_0.recurrent_weights': '0.892', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:44:08,165][src.modRNN.training.alignment][INFO] -   align diffusion_aligned @ epoch 801: cos {'ALIFCell_0.input_weights': '1.055', 'ALIFCell_0.recurrent_weights': '1.503', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:44:09,345][src.modRNN.training.alignment][INFO] -   align diffusion_per_step @ epoch 801: cos {'ALIFCell_0.input_weights': '1.119', 'ALIFCell_0.recurrent_weights': '1.489', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:44:10,025][src.modRNN.training.alignment][INFO] -   align diffusion_fixed @ epoch 801: cos {'ALIFCell_0.input_weights': '0.622', 'ALIFCell_0.recurrent_weights': '1.086', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:44:27,622][src.modRNN.training.alignment][INFO] - epoch 825  train loss=0.1020  (rule: diffusion)
+[2026-06-02 20:44:45,891][src.modRNN.training.alignment][INFO] - epoch 850  train loss=0.1334  (rule: diffusion)
+[2026-06-02 20:44:47,376][src.modRNN.training.alignment][INFO] -   align BPTT @ epoch 851: cos {'ALIFCell_0.input_weights': '0.000', 'ALIFCell_0.recurrent_weights': '0.000', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:44:47,939][src.modRNN.training.alignment][INFO] -   align eprop @ epoch 851: cos {'ALIFCell_0.input_weights': '0.737', 'ALIFCell_0.recurrent_weights': '0.528', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:44:48,632][src.modRNN.training.alignment][INFO] -   align diffusion_aligned @ epoch 851: cos {'ALIFCell_0.input_weights': '1.069', 'ALIFCell_0.recurrent_weights': '1.374', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:44:49,812][src.modRNN.training.alignment][INFO] -   align diffusion_per_step @ epoch 851: cos {'ALIFCell_0.input_weights': '1.066', 'ALIFCell_0.recurrent_weights': '1.218', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:44:50,491][src.modRNN.training.alignment][INFO] -   align diffusion_fixed @ epoch 851: cos {'ALIFCell_0.input_weights': '0.970', 'ALIFCell_0.recurrent_weights': '1.294', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:45:08,045][src.modRNN.training.alignment][INFO] - epoch 875  train loss=0.0959  (rule: diffusion)
+[2026-06-02 20:45:26,347][src.modRNN.training.alignment][INFO] - epoch 900  train loss=0.1610  (rule: diffusion)
+[2026-06-02 20:45:27,834][src.modRNN.training.alignment][INFO] -   align BPTT @ epoch 901: cos {'ALIFCell_0.input_weights': '0.000', 'ALIFCell_0.recurrent_weights': '0.000', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:45:28,393][src.modRNN.training.alignment][INFO] -   align eprop @ epoch 901: cos {'ALIFCell_0.input_weights': '0.511', 'ALIFCell_0.recurrent_weights': '0.881', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:45:29,088][src.modRNN.training.alignment][INFO] -   align diffusion_aligned @ epoch 901: cos {'ALIFCell_0.input_weights': '1.386', 'ALIFCell_0.recurrent_weights': '1.471', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:45:30,269][src.modRNN.training.alignment][INFO] -   align diffusion_per_step @ epoch 901: cos {'ALIFCell_0.input_weights': '1.246', 'ALIFCell_0.recurrent_weights': '1.383', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:45:30,952][src.modRNN.training.alignment][INFO] -   align diffusion_fixed @ epoch 901: cos {'ALIFCell_0.input_weights': '1.293', 'ALIFCell_0.recurrent_weights': '1.414', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:45:48,582][src.modRNN.training.alignment][INFO] - epoch 925  train loss=0.1512  (rule: diffusion)
+[2026-06-02 20:46:06,956][src.modRNN.training.alignment][INFO] - epoch 950  train loss=0.1924  (rule: diffusion)
+[2026-06-02 20:46:08,448][src.modRNN.training.alignment][INFO] -   align BPTT @ epoch 951: cos {'ALIFCell_0.input_weights': '0.000', 'ALIFCell_0.recurrent_weights': '0.000', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:46:09,007][src.modRNN.training.alignment][INFO] -   align eprop @ epoch 951: cos {'ALIFCell_0.input_weights': '0.515', 'ALIFCell_0.recurrent_weights': '0.782', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:46:09,698][src.modRNN.training.alignment][INFO] -   align diffusion_aligned @ epoch 951: cos {'ALIFCell_0.input_weights': '1.425', 'ALIFCell_0.recurrent_weights': '1.388', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:46:10,878][src.modRNN.training.alignment][INFO] -   align diffusion_per_step @ epoch 951: cos {'ALIFCell_0.input_weights': '1.289', 'ALIFCell_0.recurrent_weights': '1.319', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:46:11,558][src.modRNN.training.alignment][INFO] -   align diffusion_fixed @ epoch 951: cos {'ALIFCell_0.input_weights': '1.409', 'ALIFCell_0.recurrent_weights': '1.407', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:46:29,124][src.modRNN.training.alignment][INFO] - epoch 975  train loss=0.0742  (rule: diffusion)
+[2026-06-02 20:46:47,384][src.modRNN.training.alignment][INFO] - epoch 1000  train loss=0.2765  (rule: diffusion)
+[2026-06-02 20:46:48,869][src.modRNN.training.alignment][INFO] -   align BPTT @ epoch 1001: cos {'ALIFCell_0.input_weights': '0.000', 'ALIFCell_0.recurrent_weights': '0.000', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:46:49,429][src.modRNN.training.alignment][INFO] -   align eprop @ epoch 1001: cos {'ALIFCell_0.input_weights': '0.770', 'ALIFCell_0.recurrent_weights': '0.580', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:46:50,125][src.modRNN.training.alignment][INFO] -   align diffusion_aligned @ epoch 1001: cos {'ALIFCell_0.input_weights': '0.813', 'ALIFCell_0.recurrent_weights': '0.573', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:46:51,305][src.modRNN.training.alignment][INFO] -   align diffusion_per_step @ epoch 1001: cos {'ALIFCell_0.input_weights': '0.731', 'ALIFCell_0.recurrent_weights': '0.536', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:46:51,987][src.modRNN.training.alignment][INFO] -   align diffusion_fixed @ epoch 1001: cos {'ALIFCell_0.input_weights': '0.730', 'ALIFCell_0.recurrent_weights': '0.605', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:47:09,543][src.modRNN.training.alignment][INFO] - epoch 1025  train loss=0.2401  (rule: diffusion)
+[2026-06-02 20:47:27,867][src.modRNN.training.alignment][INFO] - epoch 1050  train loss=0.3308  (rule: diffusion)
+[2026-06-02 20:47:29,352][src.modRNN.training.alignment][INFO] -   align BPTT @ epoch 1051: cos {'ALIFCell_0.input_weights': '0.000', 'ALIFCell_0.recurrent_weights': '0.000', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:47:29,909][src.modRNN.training.alignment][INFO] -   align eprop @ epoch 1051: cos {'ALIFCell_0.input_weights': '0.983', 'ALIFCell_0.recurrent_weights': '1.034', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:47:30,602][src.modRNN.training.alignment][INFO] -   align diffusion_aligned @ epoch 1051: cos {'ALIFCell_0.input_weights': '1.086', 'ALIFCell_0.recurrent_weights': '1.107', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:47:31,784][src.modRNN.training.alignment][INFO] -   align diffusion_per_step @ epoch 1051: cos {'ALIFCell_0.input_weights': '1.149', 'ALIFCell_0.recurrent_weights': '1.156', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:47:32,464][src.modRNN.training.alignment][INFO] -   align diffusion_fixed @ epoch 1051: cos {'ALIFCell_0.input_weights': '1.126', 'ALIFCell_0.recurrent_weights': '1.131', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:47:49,999][src.modRNN.training.alignment][INFO] - epoch 1075  train loss=0.2570  (rule: diffusion)
+[2026-06-02 20:48:08,297][src.modRNN.training.alignment][INFO] - epoch 1100  train loss=0.1566  (rule: diffusion)
+[2026-06-02 20:48:09,784][src.modRNN.training.alignment][INFO] -   align BPTT @ epoch 1101: cos {'ALIFCell_0.input_weights': '0.000', 'ALIFCell_0.recurrent_weights': '0.000', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:48:10,342][src.modRNN.training.alignment][INFO] -   align eprop @ epoch 1101: cos {'ALIFCell_0.input_weights': '0.503', 'ALIFCell_0.recurrent_weights': '0.607', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:48:11,038][src.modRNN.training.alignment][INFO] -   align diffusion_aligned @ epoch 1101: cos {'ALIFCell_0.input_weights': '0.658', 'ALIFCell_0.recurrent_weights': '0.868', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:48:12,222][src.modRNN.training.alignment][INFO] -   align diffusion_per_step @ epoch 1101: cos {'ALIFCell_0.input_weights': '0.567', 'ALIFCell_0.recurrent_weights': '0.724', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:48:12,906][src.modRNN.training.alignment][INFO] -   align diffusion_fixed @ epoch 1101: cos {'ALIFCell_0.input_weights': '0.636', 'ALIFCell_0.recurrent_weights': '0.894', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:48:30,485][src.modRNN.training.alignment][INFO] - epoch 1125  train loss=0.2314  (rule: diffusion)
+[2026-06-02 20:48:48,781][src.modRNN.training.alignment][INFO] - epoch 1150  train loss=0.2425  (rule: diffusion)
+[2026-06-02 20:48:50,265][src.modRNN.training.alignment][INFO] -   align BPTT @ epoch 1151: cos {'ALIFCell_0.input_weights': '0.000', 'ALIFCell_0.recurrent_weights': '0.000', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:48:50,824][src.modRNN.training.alignment][INFO] -   align eprop @ epoch 1151: cos {'ALIFCell_0.input_weights': '0.556', 'ALIFCell_0.recurrent_weights': '0.689', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:48:51,522][src.modRNN.training.alignment][INFO] -   align diffusion_aligned @ epoch 1151: cos {'ALIFCell_0.input_weights': '0.805', 'ALIFCell_0.recurrent_weights': '0.838', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:48:52,702][src.modRNN.training.alignment][INFO] -   align diffusion_per_step @ epoch 1151: cos {'ALIFCell_0.input_weights': '0.639', 'ALIFCell_0.recurrent_weights': '0.739', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:48:53,384][src.modRNN.training.alignment][INFO] -   align diffusion_fixed @ epoch 1151: cos {'ALIFCell_0.input_weights': '0.761', 'ALIFCell_0.recurrent_weights': '0.820', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:49:10,950][src.modRNN.training.alignment][INFO] - epoch 1175  train loss=0.3539  (rule: diffusion)
+[2026-06-02 20:49:29,241][src.modRNN.training.alignment][INFO] - epoch 1200  train loss=0.4328  (rule: diffusion)
+[2026-06-02 20:49:30,728][src.modRNN.training.alignment][INFO] -   align BPTT @ epoch 1201: cos {'ALIFCell_0.input_weights': '0.000', 'ALIFCell_0.recurrent_weights': '0.000', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:49:31,284][src.modRNN.training.alignment][INFO] -   align eprop @ epoch 1201: cos {'ALIFCell_0.input_weights': '0.615', 'ALIFCell_0.recurrent_weights': '0.569', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:49:31,975][src.modRNN.training.alignment][INFO] -   align diffusion_aligned @ epoch 1201: cos {'ALIFCell_0.input_weights': '0.875', 'ALIFCell_0.recurrent_weights': '0.823', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:49:33,153][src.modRNN.training.alignment][INFO] -   align diffusion_per_step @ epoch 1201: cos {'ALIFCell_0.input_weights': '0.677', 'ALIFCell_0.recurrent_weights': '0.672', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:49:33,832][src.modRNN.training.alignment][INFO] -   align diffusion_fixed @ epoch 1201: cos {'ALIFCell_0.input_weights': '0.851', 'ALIFCell_0.recurrent_weights': '0.737', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:49:51,369][src.modRNN.training.alignment][INFO] - epoch 1225  train loss=0.1576  (rule: diffusion)
+[2026-06-02 20:50:09,662][src.modRNN.training.alignment][INFO] - epoch 1250  train loss=0.4106  (rule: diffusion)
+[2026-06-02 20:50:11,146][src.modRNN.training.alignment][INFO] -   align BPTT @ epoch 1251: cos {'ALIFCell_0.input_weights': '0.000', 'ALIFCell_0.recurrent_weights': '0.000', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:50:11,703][src.modRNN.training.alignment][INFO] -   align eprop @ epoch 1251: cos {'ALIFCell_0.input_weights': '0.526', 'ALIFCell_0.recurrent_weights': '0.458', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:50:12,396][src.modRNN.training.alignment][INFO] -   align diffusion_aligned @ epoch 1251: cos {'ALIFCell_0.input_weights': '0.914', 'ALIFCell_0.recurrent_weights': '0.955', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:50:13,575][src.modRNN.training.alignment][INFO] -   align diffusion_per_step @ epoch 1251: cos {'ALIFCell_0.input_weights': '0.711', 'ALIFCell_0.recurrent_weights': '0.753', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:50:14,256][src.modRNN.training.alignment][INFO] -   align diffusion_fixed @ epoch 1251: cos {'ALIFCell_0.input_weights': '0.825', 'ALIFCell_0.recurrent_weights': '0.867', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:50:31,841][src.modRNN.training.alignment][INFO] - epoch 1275  train loss=0.1215  (rule: diffusion)
+[2026-06-02 20:50:50,121][src.modRNN.training.alignment][INFO] - epoch 1300  train loss=0.3334  (rule: diffusion)
+[2026-06-02 20:50:51,603][src.modRNN.training.alignment][INFO] -   align BPTT @ epoch 1301: cos {'ALIFCell_0.input_weights': '0.000', 'ALIFCell_0.recurrent_weights': '0.000', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:50:52,160][src.modRNN.training.alignment][INFO] -   align eprop @ epoch 1301: cos {'ALIFCell_0.input_weights': '0.857', 'ALIFCell_0.recurrent_weights': '0.604', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:50:52,851][src.modRNN.training.alignment][INFO] -   align diffusion_aligned @ epoch 1301: cos {'ALIFCell_0.input_weights': '0.930', 'ALIFCell_0.recurrent_weights': '0.684', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:50:54,030][src.modRNN.training.alignment][INFO] -   align diffusion_per_step @ epoch 1301: cos {'ALIFCell_0.input_weights': '0.785', 'ALIFCell_0.recurrent_weights': '0.587', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:50:54,712][src.modRNN.training.alignment][INFO] -   align diffusion_fixed @ epoch 1301: cos {'ALIFCell_0.input_weights': '0.743', 'ALIFCell_0.recurrent_weights': '0.642', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:51:12,270][src.modRNN.training.alignment][INFO] - epoch 1325  train loss=0.2127  (rule: diffusion)
+[2026-06-02 20:51:30,569][src.modRNN.training.alignment][INFO] - epoch 1350  train loss=0.2933  (rule: diffusion)
+[2026-06-02 20:51:32,056][src.modRNN.training.alignment][INFO] -   align BPTT @ epoch 1351: cos {'ALIFCell_0.input_weights': '0.000', 'ALIFCell_0.recurrent_weights': '0.000', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:51:32,613][src.modRNN.training.alignment][INFO] -   align eprop @ epoch 1351: cos {'ALIFCell_0.input_weights': '0.650', 'ALIFCell_0.recurrent_weights': '0.715', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:51:33,305][src.modRNN.training.alignment][INFO] -   align diffusion_aligned @ epoch 1351: cos {'ALIFCell_0.input_weights': '0.821', 'ALIFCell_0.recurrent_weights': '0.877', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:51:34,484][src.modRNN.training.alignment][INFO] -   align diffusion_per_step @ epoch 1351: cos {'ALIFCell_0.input_weights': '0.701', 'ALIFCell_0.recurrent_weights': '0.752', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:51:35,166][src.modRNN.training.alignment][INFO] -   align diffusion_fixed @ epoch 1351: cos {'ALIFCell_0.input_weights': '0.708', 'ALIFCell_0.recurrent_weights': '0.879', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:51:52,662][src.modRNN.training.alignment][INFO] - epoch 1375  train loss=0.2811  (rule: diffusion)
+[2026-06-02 20:52:10,922][src.modRNN.training.alignment][INFO] - epoch 1400  train loss=0.3158  (rule: diffusion)
+[2026-06-02 20:52:12,410][src.modRNN.training.alignment][INFO] -   align BPTT @ epoch 1401: cos {'ALIFCell_0.input_weights': '0.000', 'ALIFCell_0.recurrent_weights': '0.000', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:52:12,968][src.modRNN.training.alignment][INFO] -   align eprop @ epoch 1401: cos {'ALIFCell_0.input_weights': '0.607', 'ALIFCell_0.recurrent_weights': '0.497', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:52:13,659][src.modRNN.training.alignment][INFO] -   align diffusion_aligned @ epoch 1401: cos {'ALIFCell_0.input_weights': '0.740', 'ALIFCell_0.recurrent_weights': '0.716', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:52:14,838][src.modRNN.training.alignment][INFO] -   align diffusion_per_step @ epoch 1401: cos {'ALIFCell_0.input_weights': '0.598', 'ALIFCell_0.recurrent_weights': '0.637', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:52:15,518][src.modRNN.training.alignment][INFO] -   align diffusion_fixed @ epoch 1401: cos {'ALIFCell_0.input_weights': '0.569', 'ALIFCell_0.recurrent_weights': '0.490', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:52:33,058][src.modRNN.training.alignment][INFO] - epoch 1425  train loss=0.3551  (rule: diffusion)
+[2026-06-02 20:52:51,282][src.modRNN.training.alignment][INFO] - epoch 1450  train loss=0.1203  (rule: diffusion)
+[2026-06-02 20:52:52,765][src.modRNN.training.alignment][INFO] -   align BPTT @ epoch 1451: cos {'ALIFCell_0.input_weights': '0.000', 'ALIFCell_0.recurrent_weights': '0.000', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:52:53,323][src.modRNN.training.alignment][INFO] -   align eprop @ epoch 1451: cos {'ALIFCell_0.input_weights': '0.625', 'ALIFCell_0.recurrent_weights': '0.605', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:52:54,015][src.modRNN.training.alignment][INFO] -   align diffusion_aligned @ epoch 1451: cos {'ALIFCell_0.input_weights': '0.800', 'ALIFCell_0.recurrent_weights': '0.956', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:52:55,195][src.modRNN.training.alignment][INFO] -   align diffusion_per_step @ epoch 1451: cos {'ALIFCell_0.input_weights': '0.598', 'ALIFCell_0.recurrent_weights': '0.805', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:52:55,875][src.modRNN.training.alignment][INFO] -   align diffusion_fixed @ epoch 1451: cos {'ALIFCell_0.input_weights': '0.646', 'ALIFCell_0.recurrent_weights': '0.734', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:53:13,453][src.modRNN.training.alignment][INFO] - epoch 1475  train loss=0.3014  (rule: diffusion)
+[2026-06-02 20:53:31,778][src.modRNN.training.alignment][INFO] - epoch 1500  train loss=0.1519  (rule: diffusion)
+[2026-06-02 20:53:33,266][src.modRNN.training.alignment][INFO] -   align BPTT @ epoch 1501: cos {'ALIFCell_0.input_weights': '0.000', 'ALIFCell_0.recurrent_weights': '0.000', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:53:33,824][src.modRNN.training.alignment][INFO] -   align eprop @ epoch 1501: cos {'ALIFCell_0.input_weights': '0.733', 'ALIFCell_0.recurrent_weights': '0.530', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:53:34,517][src.modRNN.training.alignment][INFO] -   align diffusion_aligned @ epoch 1501: cos {'ALIFCell_0.input_weights': '0.891', 'ALIFCell_0.recurrent_weights': '0.711', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:53:35,696][src.modRNN.training.alignment][INFO] -   align diffusion_per_step @ epoch 1501: cos {'ALIFCell_0.input_weights': '0.739', 'ALIFCell_0.recurrent_weights': '0.601', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:53:36,377][src.modRNN.training.alignment][INFO] -   align diffusion_fixed @ epoch 1501: cos {'ALIFCell_0.input_weights': '0.743', 'ALIFCell_0.recurrent_weights': '0.552', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:53:53,875][src.modRNN.training.alignment][INFO] - epoch 1525  train loss=0.2387  (rule: diffusion)
+[2026-06-02 20:54:12,120][src.modRNN.training.alignment][INFO] - epoch 1550  train loss=0.4241  (rule: diffusion)
+[2026-06-02 20:54:13,605][src.modRNN.training.alignment][INFO] -   align BPTT @ epoch 1551: cos {'ALIFCell_0.input_weights': '0.000', 'ALIFCell_0.recurrent_weights': '0.000', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:54:14,161][src.modRNN.training.alignment][INFO] -   align eprop @ epoch 1551: cos {'ALIFCell_0.input_weights': '0.726', 'ALIFCell_0.recurrent_weights': '0.640', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:54:14,854][src.modRNN.training.alignment][INFO] -   align diffusion_aligned @ epoch 1551: cos {'ALIFCell_0.input_weights': '0.999', 'ALIFCell_0.recurrent_weights': '0.794', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:54:16,033][src.modRNN.training.alignment][INFO] -   align diffusion_per_step @ epoch 1551: cos {'ALIFCell_0.input_weights': '0.849', 'ALIFCell_0.recurrent_weights': '0.707', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:54:16,715][src.modRNN.training.alignment][INFO] -   align diffusion_fixed @ epoch 1551: cos {'ALIFCell_0.input_weights': '0.802', 'ALIFCell_0.recurrent_weights': '0.674', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:54:34,291][src.modRNN.training.alignment][INFO] - epoch 1575  train loss=0.1752  (rule: diffusion)
+[2026-06-02 20:54:52,577][src.modRNN.training.alignment][INFO] - epoch 1600  train loss=0.2051  (rule: diffusion)
+[2026-06-02 20:54:54,062][src.modRNN.training.alignment][INFO] -   align BPTT @ epoch 1601: cos {'ALIFCell_0.input_weights': '0.000', 'ALIFCell_0.recurrent_weights': '0.000', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:54:54,621][src.modRNN.training.alignment][INFO] -   align eprop @ epoch 1601: cos {'ALIFCell_0.input_weights': '0.733', 'ALIFCell_0.recurrent_weights': '0.949', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:54:55,314][src.modRNN.training.alignment][INFO] -   align diffusion_aligned @ epoch 1601: cos {'ALIFCell_0.input_weights': '0.762', 'ALIFCell_0.recurrent_weights': '1.222', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:54:56,493][src.modRNN.training.alignment][INFO] -   align diffusion_per_step @ epoch 1601: cos {'ALIFCell_0.input_weights': '0.702', 'ALIFCell_0.recurrent_weights': '1.148', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:54:57,174][src.modRNN.training.alignment][INFO] -   align diffusion_fixed @ epoch 1601: cos {'ALIFCell_0.input_weights': '0.716', 'ALIFCell_0.recurrent_weights': '1.103', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:55:14,741][src.modRNN.training.alignment][INFO] - epoch 1625  train loss=0.3361  (rule: diffusion)
+[2026-06-02 20:55:33,033][src.modRNN.training.alignment][INFO] - epoch 1650  train loss=0.1855  (rule: diffusion)
+[2026-06-02 20:55:34,519][src.modRNN.training.alignment][INFO] -   align BPTT @ epoch 1651: cos {'ALIFCell_0.input_weights': '0.000', 'ALIFCell_0.recurrent_weights': '0.000', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:55:35,076][src.modRNN.training.alignment][INFO] -   align eprop @ epoch 1651: cos {'ALIFCell_0.input_weights': '0.615', 'ALIFCell_0.recurrent_weights': '0.573', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:55:35,767][src.modRNN.training.alignment][INFO] -   align diffusion_aligned @ epoch 1651: cos {'ALIFCell_0.input_weights': '0.672', 'ALIFCell_0.recurrent_weights': '0.788', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:55:36,947][src.modRNN.training.alignment][INFO] -   align diffusion_per_step @ epoch 1651: cos {'ALIFCell_0.input_weights': '0.571', 'ALIFCell_0.recurrent_weights': '0.667', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:55:37,626][src.modRNN.training.alignment][INFO] -   align diffusion_fixed @ epoch 1651: cos {'ALIFCell_0.input_weights': '0.636', 'ALIFCell_0.recurrent_weights': '0.577', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:55:55,144][src.modRNN.training.alignment][INFO] - epoch 1675  train loss=0.2789  (rule: diffusion)
+[2026-06-02 20:56:13,438][src.modRNN.training.alignment][INFO] - epoch 1700  train loss=0.2930  (rule: diffusion)
+[2026-06-02 20:56:14,929][src.modRNN.training.alignment][INFO] -   align BPTT @ epoch 1701: cos {'ALIFCell_0.input_weights': '0.000', 'ALIFCell_0.recurrent_weights': '0.000', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:56:15,488][src.modRNN.training.alignment][INFO] -   align eprop @ epoch 1701: cos {'ALIFCell_0.input_weights': '0.704', 'ALIFCell_0.recurrent_weights': '0.655', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:56:16,181][src.modRNN.training.alignment][INFO] -   align diffusion_aligned @ epoch 1701: cos {'ALIFCell_0.input_weights': '0.640', 'ALIFCell_0.recurrent_weights': '0.870', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:56:17,361][src.modRNN.training.alignment][INFO] -   align diffusion_per_step @ epoch 1701: cos {'ALIFCell_0.input_weights': '0.635', 'ALIFCell_0.recurrent_weights': '0.737', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:56:18,041][src.modRNN.training.alignment][INFO] -   align diffusion_fixed @ epoch 1701: cos {'ALIFCell_0.input_weights': '0.744', 'ALIFCell_0.recurrent_weights': '0.810', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:56:35,596][src.modRNN.training.alignment][INFO] - epoch 1725  train loss=0.2514  (rule: diffusion)
+[2026-06-02 20:56:53,858][src.modRNN.training.alignment][INFO] - epoch 1750  train loss=0.2637  (rule: diffusion)
+[2026-06-02 20:56:55,341][src.modRNN.training.alignment][INFO] -   align BPTT @ epoch 1751: cos {'ALIFCell_0.input_weights': '0.000', 'ALIFCell_0.recurrent_weights': '0.000', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:56:55,898][src.modRNN.training.alignment][INFO] -   align eprop @ epoch 1751: cos {'ALIFCell_0.input_weights': '0.884', 'ALIFCell_0.recurrent_weights': '0.788', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:56:56,593][src.modRNN.training.alignment][INFO] -   align diffusion_aligned @ epoch 1751: cos {'ALIFCell_0.input_weights': '0.967', 'ALIFCell_0.recurrent_weights': '0.950', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:56:57,774][src.modRNN.training.alignment][INFO] -   align diffusion_per_step @ epoch 1751: cos {'ALIFCell_0.input_weights': '0.934', 'ALIFCell_0.recurrent_weights': '0.817', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:56:58,457][src.modRNN.training.alignment][INFO] -   align diffusion_fixed @ epoch 1751: cos {'ALIFCell_0.input_weights': '0.962', 'ALIFCell_0.recurrent_weights': '0.739', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:57:16,047][src.modRNN.training.alignment][INFO] - epoch 1775  train loss=0.1834  (rule: diffusion)
+[2026-06-02 20:57:34,305][src.modRNN.training.alignment][INFO] - epoch 1800  train loss=0.2398  (rule: diffusion)
+[2026-06-02 20:57:35,791][src.modRNN.training.alignment][INFO] -   align BPTT @ epoch 1801: cos {'ALIFCell_0.input_weights': '0.000', 'ALIFCell_0.recurrent_weights': '0.000', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:57:36,349][src.modRNN.training.alignment][INFO] -   align eprop @ epoch 1801: cos {'ALIFCell_0.input_weights': '0.776', 'ALIFCell_0.recurrent_weights': '0.791', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:57:37,043][src.modRNN.training.alignment][INFO] -   align diffusion_aligned @ epoch 1801: cos {'ALIFCell_0.input_weights': '0.925', 'ALIFCell_0.recurrent_weights': '1.083', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:57:38,225][src.modRNN.training.alignment][INFO] -   align diffusion_per_step @ epoch 1801: cos {'ALIFCell_0.input_weights': '0.801', 'ALIFCell_0.recurrent_weights': '0.966', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:57:38,908][src.modRNN.training.alignment][INFO] -   align diffusion_fixed @ epoch 1801: cos {'ALIFCell_0.input_weights': '0.834', 'ALIFCell_0.recurrent_weights': '0.877', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:57:56,443][src.modRNN.training.alignment][INFO] - epoch 1825  train loss=0.3490  (rule: diffusion)
+[2026-06-02 20:58:14,734][src.modRNN.training.alignment][INFO] - epoch 1850  train loss=0.1439  (rule: diffusion)
+[2026-06-02 20:58:16,218][src.modRNN.training.alignment][INFO] -   align BPTT @ epoch 1851: cos {'ALIFCell_0.input_weights': '0.000', 'ALIFCell_0.recurrent_weights': '0.000', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:58:16,776][src.modRNN.training.alignment][INFO] -   align eprop @ epoch 1851: cos {'ALIFCell_0.input_weights': '0.709', 'ALIFCell_0.recurrent_weights': '0.840', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:58:17,472][src.modRNN.training.alignment][INFO] -   align diffusion_aligned @ epoch 1851: cos {'ALIFCell_0.input_weights': '0.881', 'ALIFCell_0.recurrent_weights': '1.022', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:58:18,655][src.modRNN.training.alignment][INFO] -   align diffusion_per_step @ epoch 1851: cos {'ALIFCell_0.input_weights': '0.721', 'ALIFCell_0.recurrent_weights': '0.906', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:58:19,338][src.modRNN.training.alignment][INFO] -   align diffusion_fixed @ epoch 1851: cos {'ALIFCell_0.input_weights': '0.774', 'ALIFCell_0.recurrent_weights': '0.790', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:58:36,873][src.modRNN.training.alignment][INFO] - epoch 1875  train loss=0.1686  (rule: diffusion)
+[2026-06-02 20:58:55,115][src.modRNN.training.alignment][INFO] - epoch 1900  train loss=0.1972  (rule: diffusion)
+[2026-06-02 20:58:56,598][src.modRNN.training.alignment][INFO] -   align BPTT @ epoch 1901: cos {'ALIFCell_0.input_weights': '0.000', 'ALIFCell_0.recurrent_weights': '0.000', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:58:57,158][src.modRNN.training.alignment][INFO] -   align eprop @ epoch 1901: cos {'ALIFCell_0.input_weights': '0.711', 'ALIFCell_0.recurrent_weights': '0.665', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:58:57,850][src.modRNN.training.alignment][INFO] -   align diffusion_aligned @ epoch 1901: cos {'ALIFCell_0.input_weights': '0.748', 'ALIFCell_0.recurrent_weights': '0.767', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:58:59,030][src.modRNN.training.alignment][INFO] -   align diffusion_per_step @ epoch 1901: cos {'ALIFCell_0.input_weights': '0.642', 'ALIFCell_0.recurrent_weights': '0.718', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:58:59,711][src.modRNN.training.alignment][INFO] -   align diffusion_fixed @ epoch 1901: cos {'ALIFCell_0.input_weights': '0.621', 'ALIFCell_0.recurrent_weights': '0.606', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:59:17,252][src.modRNN.training.alignment][INFO] - epoch 1925  train loss=0.1658  (rule: diffusion)
+[2026-06-02 20:59:35,516][src.modRNN.training.alignment][INFO] - epoch 1950  train loss=0.2304  (rule: diffusion)
+[2026-06-02 20:59:37,003][src.modRNN.training.alignment][INFO] -   align BPTT @ epoch 1951: cos {'ALIFCell_0.input_weights': '0.000', 'ALIFCell_0.recurrent_weights': '0.000', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:59:37,561][src.modRNN.training.alignment][INFO] -   align eprop @ epoch 1951: cos {'ALIFCell_0.input_weights': '0.836', 'ALIFCell_0.recurrent_weights': '0.585', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:59:38,252][src.modRNN.training.alignment][INFO] -   align diffusion_aligned @ epoch 1951: cos {'ALIFCell_0.input_weights': '1.157', 'ALIFCell_0.recurrent_weights': '0.927', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:59:39,431][src.modRNN.training.alignment][INFO] -   align diffusion_per_step @ epoch 1951: cos {'ALIFCell_0.input_weights': '1.060', 'ALIFCell_0.recurrent_weights': '0.819', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:59:40,114][src.modRNN.training.alignment][INFO] -   align diffusion_fixed @ epoch 1951: cos {'ALIFCell_0.input_weights': '1.066', 'ALIFCell_0.recurrent_weights': '0.704', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 20:59:57,611][src.modRNN.training.alignment][INFO] - epoch 1975  train loss=0.2146  (rule: diffusion)
+[2026-06-02 21:00:15,891][src.modRNN.training.alignment][INFO] - epoch 2000  train loss=0.2336  (rule: diffusion)
+[2026-06-02 21:00:17,376][src.modRNN.training.alignment][INFO] -   align BPTT @ epoch 2001: cos {'ALIFCell_0.input_weights': '0.000', 'ALIFCell_0.recurrent_weights': '0.000', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 21:00:17,934][src.modRNN.training.alignment][INFO] -   align eprop @ epoch 2001: cos {'ALIFCell_0.input_weights': '0.640', 'ALIFCell_0.recurrent_weights': '0.716', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 21:00:18,626][src.modRNN.training.alignment][INFO] -   align diffusion_aligned @ epoch 2001: cos {'ALIFCell_0.input_weights': '0.865', 'ALIFCell_0.recurrent_weights': '0.750', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 21:00:19,805][src.modRNN.training.alignment][INFO] -   align diffusion_per_step @ epoch 2001: cos {'ALIFCell_0.input_weights': '0.816', 'ALIFCell_0.recurrent_weights': '0.697', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 21:00:20,487][src.modRNN.training.alignment][INFO] -   align diffusion_fixed @ epoch 2001: cos {'ALIFCell_0.input_weights': '0.806', 'ALIFCell_0.recurrent_weights': '0.703', 'ReadOut_0.readout_weights': '0.000'}
+[2026-06-02 21:00:20,522][src.modRNN.training.alignment][INFO] - Alignment experiment finished. Output dir: /mnt/lustre/work/martius/mot736/neuromodRNN/outputs/delayed_match/align_nn_connectivity_diffusion_fixed/seed_956
