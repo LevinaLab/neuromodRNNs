@@ -1,7 +1,8 @@
-# modRNN
+# Diffusion of neuromodulators for temporal credit assignment
 
 This repository contains the code for the paper:
-
+**Diffusion of neuromodulators for temporal credit assignment**
+[João Barretto-Bittar, Anna Levina, Emmanouil Giannakakis, and Roxana Zeraati]
 
 
 If you have any questions, please contact us through GitHub.
