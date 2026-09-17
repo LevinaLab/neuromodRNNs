@@ -1,9 +1,21 @@
 # Diffusion of neuromodulators for temporal credit assignment
 
 This repository contains the code for the paper:
-**Diffusion of neuromodulators for temporal credit assignment**
-[João Barretto-Bittar, Anna Levina, Emmanouil Giannakakis, and Roxana Zeraati]
+[Diffusion of neuromodulators for temporal credit assignment](https://www.pnas.org/doi/10.1073/pnas.2608831123)
 
+If you use this code for a scientific publication, please cite the paper:
+```
+@article{barretto2026diffusion,
+  title={Diffusion of neuromodulators for temporal credit assignment},
+  author={Barretto-Bittar, Jo{\~a}o and Levina, Anna and Giannakakis, Emmanouil and Zeraati, Roxana},
+  journal={Proceedings of the National Academy of Sciences},
+  volume={123},
+  number={38},
+  pages={e2608831123},
+  year={2026},
+  publisher={National Academy of Sciences}
+}
+```
 
 If you have any questions, please contact us through GitHub.
 
